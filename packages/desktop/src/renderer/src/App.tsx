@@ -6,6 +6,9 @@ import Bills from "./components/Bills";
 import { Customers } from "./pages/Customers";
 import { Vendors } from "./pages/Vendors";
 import { Invoices } from "./pages/Invoices";
+import { ChartOfAccounts } from "./pages/ChartOfAccounts";
+import { JournalEntries } from "./pages/JournalEntries";
+import { Payments } from "./pages/Payments";
 import { Login } from "./components/Login";
 import { useAppStore } from "./stores/appStore";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -104,6 +107,9 @@ function AppContent(): React.ReactElement {
         <Route path="/customers" element={<Customers />} />
         <Route path="/vendors" element={<Vendors />} />
         <Route path="/invoices" element={<Invoices />} />
+        <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
+        <Route path="/journal-entries" element={<JournalEntries />} />
+        <Route path="/payments" element={<Payments />} />
         <Route path="/" element={<Dashboard />} />
       </Routes>
     </Layout>
