@@ -180,6 +180,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <span className="text-sm text-gray-700">
                   Welcome, {user?.displayName || user?.username || "User"}
                 </span>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </button>
               </div>
             </div>
           </div>

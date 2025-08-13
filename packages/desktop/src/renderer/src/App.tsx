@@ -12,9 +12,9 @@ import { Payments } from "./pages/Payments";
 import { Reports } from "./pages/Reports";
 import { DataImportExport } from "./pages/DataImportExport";
 import { AdvancedUserManagement } from "./pages/AdvancedUserManagement";
-import { Login } from "./components/Login";
 import { useAppStore } from "./stores/appStore";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AuthenticationWrapper } from "./components/AuthenticationWrapper";
 
 // Extend Window interface for electronAPI
 declare global {
@@ -104,21 +104,26 @@ function AppContent(): React.ReactElement {
   }
 
   return (
-    <Layout>
-      <Routes>
-        <Route path="/bills" element={<Bills />} />
-        <Route path="/customers" element={<Customers />} />
-        <Route path="/vendors" element={<Vendors />} />
-        <Route path="/invoices" element={<Invoices />} />
-        <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
-        <Route path="/journal-entries" element={<JournalEntries />} />
-        <Route path="/payments" element={<Payments />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/data-import-export" element={<DataImportExport />} />
-        <Route path="/advanced-user-management" element={<AdvancedUserManagement />} />
-        <Route path="/" element={<Dashboard />} />
-      </Routes>
-    </Layout>
+    <AuthenticationWrapper>
+      <Layout>
+        <Routes>
+          <Route path="/bills" element={<Bills />} />
+          <Route path="/customers" element={<Customers />} />
+          <Route path="/vendors" element={<Vendors />} />
+          <Route path="/invoices" element={<Invoices />} />
+          <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
+          <Route path="/journal-entries" element={<JournalEntries />} />
+          <Route path="/payments" element={<Payments />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/data-import-export" element={<DataImportExport />} />
+          <Route
+            path="/advanced-user-management"
+            element={<AdvancedUserManagement />}
+          />
+          <Route path="/" element={<Dashboard />} />
+        </Routes>
+      </Layout>
+    </AuthenticationWrapper>
   );
 }
 

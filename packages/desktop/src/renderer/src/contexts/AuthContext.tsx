@@ -59,17 +59,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Check for both token formats for compatibility
         const storedTokens = localStorage.getItem("auth_tokens");
+        const legacyToken = localStorage.getItem("token");
+        
         if (storedTokens) {
           const parsedTokens = JSON.parse(storedTokens);
           setTokens(parsedTokens);
 
           // Try to get user profile
           await refreshAuth();
+        } else if (legacyToken) {
+          // If we only have the legacy token, try to get user info
+          try {
+            const response = await fetch("http://localhost:3001/api/auth/profile", {
+              headers: {
+                Authorization: `Bearer ${legacyToken}`,
+              },
+            });
+            
+            if (response.ok) {
+              const userData = await response.json();
+              setUser(userData.data);
+              setTokens({
+                accessToken: legacyToken,
+                refreshToken: "", // We don't have refresh token in legacy format
+              });
+            } else {
+              // Invalid legacy token, remove it
+              localStorage.removeItem("token");
+            }
+          } catch (error) {
+            console.error("Failed to validate legacy token:", error);
+            localStorage.removeItem("token");
+          }
         }
       } catch (error) {
         console.error("Failed to restore authentication:", error);
         localStorage.removeItem("auth_tokens");
+        localStorage.removeItem("token");
       } finally {
         setIsLoading(false);
       }
@@ -82,7 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
 
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("http://localhost:3001/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -104,7 +132,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           refreshToken: data.data.refreshToken,
         });
 
-        // Store tokens in localStorage
+        // Store tokens in localStorage (also store as "token" for compatibility)
         localStorage.setItem(
           "auth_tokens",
           JSON.stringify({
@@ -112,6 +140,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             refreshToken: data.data.refreshToken,
           })
         );
+        localStorage.setItem("token", data.data.accessToken);
       } else {
         throw new Error("Invalid response format");
       }
@@ -127,7 +156,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
 
-      const response = await fetch("/api/auth/register", {
+      const response = await fetch("http://localhost:3001/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -149,7 +178,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           refreshToken: data.data.refreshToken,
         });
 
-        // Store tokens in localStorage
+        // Store tokens in localStorage (also store as "token" for compatibility)
         localStorage.setItem(
           "auth_tokens",
           JSON.stringify({
@@ -157,6 +186,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             refreshToken: data.data.refreshToken,
           })
         );
+        localStorage.setItem("token", data.data.accessToken);
       } else {
         throw new Error("Invalid response format");
       }
@@ -172,10 +202,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     setTokens(null);
     localStorage.removeItem("auth_tokens");
+    localStorage.removeItem("token");
 
     // Call logout endpoint if we have tokens
     if (tokens?.refreshToken) {
-      fetch("/api/auth/logout", {
+      fetch("http://localhost:3001/api/auth/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -192,7 +223,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     try {
-      const response = await fetch("/api/auth/refresh", {
+      const response = await fetch("http://localhost:3001/api/auth/refresh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -213,7 +244,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           refreshToken: data.data.refreshToken,
         });
 
-        // Update stored tokens
+        // Update stored tokens (also update "token" for compatibility)
         localStorage.setItem(
           "auth_tokens",
           JSON.stringify({
@@ -221,6 +252,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             refreshToken: data.data.refreshToken,
           })
         );
+        localStorage.setItem("token", data.data.accessToken);
       }
     } catch (error) {
       console.error("Token refresh failed:", error);
