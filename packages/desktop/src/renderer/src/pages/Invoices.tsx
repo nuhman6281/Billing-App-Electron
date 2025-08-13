@@ -1,6 +1,6 @@
 import React from 'react';
-import Invoices from '../components/Invoices';
+import InvoicesComponent from '../components/Invoices';
 
 export function Invoices(): React.ReactElement {
-  return <Invoices />;
+  return <InvoicesComponent />;
 }
