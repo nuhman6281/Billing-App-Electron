@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Authentication Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+      .success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+      }
+      .error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+      }
+      button {
+        padding: 10px 15px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      input {
+        padding: 8px;
+        margin: 5px;
+        width: 200px;
+      }
+      .result {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Billing App Authentication Test</h1>
+
+    <div class="test-section">
+      <h3>1. Test Backend Connection</h3>
+      <button onclick="testBackendConnection()">Test Backend</button>
+      <div id="backend-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>2. Test User Registration</h3>
+      <input
+        type="text"
+        id="reg-username"
+        placeholder="Username"
+        value="testuser2"
+      />
+      <input
+        type="email"
+        id="reg-email"
+        placeholder="Email"
+        value="test2@example.com"
+      />
+      <input
+        type="password"
+        id="reg-password"
+        placeholder="Password"
+        value="password123"
+      />
+      <input
+        type="text"
+        id="reg-firstname"
+        placeholder="First Name"
+        value="Test2"
+      />
+      <input
+        type="text"
+        id="reg-lastname"
+        placeholder="Last Name"
+        value="User2"
+      />
+      <input
+        type="text"
+        id="reg-displayname"
+        placeholder="Display Name"
+        value="Test User 2"
+      />
+      <br />
+      <button onclick="testRegistration()">Register User</button>
+      <div id="registration-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>3. Test User Login</h3>
+      <input
+        type="email"
+        id="login-email"
+        placeholder="Email"
+        value="test2@example.com"
+      />
+      <input
+        type="password"
+        id="login-password"
+        placeholder="Password"
+        value="password123"
+      />
+      <br />
+      <button onclick="testLogin()">Login</button>
+      <div id="login-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>4. Test Protected Profile</h3>
+      <button onclick="testProtectedProfile()">Get Profile</button>
+      <div id="profile-result" class="result"></div>
+    </div>
+
+    <script>
+      let currentAccessToken = "";
+      const API_BASE = "http://localhost:3001/api";
+
+      async function testBackendConnection() {
+        const resultDiv = document.getElementById("backend-result");
+        try {
+          const response = await fetch(`${API_BASE}/auth/profile`, {
+            method: "GET",
+            headers: { Authorization: "Bearer invalid-token" },
+          });
+
+          if (response.status === 401) {
+            resultDiv.innerHTML =
+              '<span style="color: green;">✅ Backend is running and responding to requests</span>';
+            resultDiv.className = "result success";
+          } else {
+            resultDiv.innerHTML =
+              '<span style="color: orange;">⚠️ Backend responded with unexpected status: ' +
+              response.status +
+              "</span>";
+            resultDiv.className = "result";
+          }
+        } catch (error) {
+          resultDiv.innerHTML =
+            '<span style="color: red;">❌ Backend connection failed: ' +
+            error.message +
+            "</span>";
+          resultDiv.className = "result error";
+        }
+      }
+
+      async function testRegistration() {
+        const resultDiv = document.getElementById("registration-result");
+        const userData = {
+          username: document.getElementById("reg-username").value,
+          email: document.getElementById("reg-email").value,
+          password: document.getElementById("reg-password").value,
+          firstName: document.getElementById("reg-firstname").value,
+          lastName: document.getElementById("reg-lastname").value,
+          displayName: document.getElementById("reg-displayname").value,
+          role: "VIEWER",
+        };
+
+        try {
+          const response = await fetch(`${API_BASE}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(userData),
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            resultDiv.innerHTML =
+              '<span style="color: green;">✅ User registered successfully! User ID: ' +
+              result.data.user.id +
+              "</span>";
+            resultDiv.className = "result success";
+          } else {
+            resultDiv.innerHTML =
+              '<span style="color: red;">❌ Registration failed: ' +
+              (result.message || "Unknown error") +
+              "</span>";
+            resultDiv.className = "result error";
+          }
+        } catch (error) {
+          resultDiv.innerHTML =
+            '<span style="color: red;">❌ Registration error: ' +
+            error.message +
+            "</span>";
+          resultDiv.className = "result error";
+        }
+      }
+
+      async function testLogin() {
+        const resultDiv = document.getElementById("login-result");
+        const loginData = {
+          email: document.getElementById("login-email").value,
+          password: document.getElementById("login-password").value,
+        };
+
+        try {
+          const response = await fetch(`${API_BASE}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(loginData),
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            currentAccessToken = result.data.accessToken;
+            resultDiv.innerHTML =
+              '<span style="color: green;">✅ Login successful! Access token received.</span>';
+            resultDiv.className = "result success";
+          } else {
+            resultDiv.innerHTML =
+              '<span style="color: red;">❌ Login failed: ' +
+              (result.message || "Unknown error") +
+              "</span>";
+            resultDiv.className = "result error";
+          }
+        } catch (error) {
+          resultDiv.innerHTML =
+            '<span style="color: red;">❌ Login error: ' +
+            error.message +
+            "</span>";
+          resultDiv.className = "result error";
+        }
+      }
+
+      async function testProtectedProfile() {
+        const resultDiv = document.getElementById("profile-result");
+
+        if (!currentAccessToken) {
+          resultDiv.innerHTML =
+            '<span style="color: orange;">⚠️ Please login first to get an access token</span>';
+          resultDiv.className = "result";
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/auth/profile`, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${currentAccessToken}` },
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            resultDiv.innerHTML =
+              '<span style="color: green;">✅ Profile retrieved successfully! User: ' +
+              result.data.displayName +
+              " (" +
+              result.data.role +
+              ")</span>";
+            resultDiv.className = "result success";
+          } else {
+            resultDiv.innerHTML =
+              '<span style="color: red;">❌ Profile retrieval failed: ' +
+              (result.message || "Unknown error") +
+              "</span>";
+            resultDiv.className = "result error";
+          }
+        } catch (error) {
+          resultDiv.innerHTML =
+            '<span style="color: red;">❌ Profile error: ' +
+            error.message +
+            "</span>";
+          resultDiv.className = "result error";
+        }
+      }
+
+      // Auto-test backend connection on page load
+      window.onload = function () {
+        testBackendConnection();
+      };
+    </script>
+  </body>
+</html>

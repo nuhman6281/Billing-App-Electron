@@ -11,22 +11,6 @@ datasource db {
 }
 
 // ============================================================================
-// BASE MODELS
-// ============================================================================
-
-model BaseEntity {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy String
-  updatedBy String
-  isDeleted Boolean  @default(false)
-  version   Int      @default(1)
-
-  @@map("base_entities")
-}
-
-// ============================================================================
 // USER MANAGEMENT
 // ============================================================================
 
@@ -70,8 +54,7 @@ model User {
 
   // Relations
   company               Company?  @relation(fields: [companyId], references: [id])
-  sessions              UserSession[]
-  auditLogs             AuditLog[]
+  refreshTokens         RefreshToken[]
   journalEntries        JournalEntry[]
   invoices              Invoice[]
   bills                 Bill[]
@@ -84,12 +67,16 @@ model User {
   @@map("users")
 }
 
-model Role {
+model Company {
   id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  permissions Permission[]
-  isSystem    Boolean  @default(false)
+  name        String
+  legalName   String?
+  taxId       String?
+  address     Json?
+  phone       String?
+  email       String?
+  website     String?
+  logo        String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -100,84 +87,35 @@ model Role {
 
   // Relations
   users       User[]
-
-  @@map("roles")
-}
-
-model UserSession {
-  id            String        @id @default(cuid())
-  userId        String
-  sessionId     String        @unique
-  tokenId       String        @unique
-  refreshTokenId String       @unique
-  status        SessionStatus @default(ACTIVE)
-  ipAddress     String
-  userAgent     String
-  deviceType    String
-  browser       String
-  browserVersion String
-  operatingSystem String
-  operatingSystemVersion String
-  deviceModel   String?
-  deviceManufacturer String?
-  lastActivityAt DateTime     @default(now())
-  expiresAt     DateTime
-  revokedAt     DateTime?
-  revokedBy     String?
-  revokedReason String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  createdBy     String
-  updatedBy     String
-  isDeleted     Boolean       @default(false)
-  version       Int           @default(1)
-
-  // Relations
-  user          User          @relation(fields: [userId], references: [id])
-
-  @@map("user_sessions")
-}
-
-// ============================================================================
-// COMPANY & ORGANIZATION
-// ============================================================================
-
-model Company {
-  id                String   @id @default(cuid())
-  name              String
-  legalName         String?
-  taxId             String?
-  registrationNumber String?
-  website           String?
-  phone             String?
-  email             String?
-  address           Json?
-  logo              String?
-  currency          String   @default("USD")
-  timezone          String   @default("UTC")
-  locale            String   @default("en-US")
-  fiscalYearStart   DateTime
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  createdBy         String
-  updatedBy         String
-  isDeleted         Boolean  @default(false)
-  version           Int      @default(1)
-
-  // Relations
-  users             User[]
-  chartOfAccounts   ChartOfAccount[]
-  journalEntries    JournalEntry[]
-  invoices          Invoice[]
-  bills             Bill[]
-  customers         Customer[]
-  vendors           Vendor[]
-  projects          Project[]
-  costCenters       CostCenter[]
-  taxCodes          TaxCode[]
+  chartOfAccounts ChartOfAccount[]
+  journalEntries JournalEntry[]
+  invoices   Invoice[]
+  bills      Bill[]
+  payments   Payment[]
+  customers  Customer[]
+  vendors    Vendor[]
+  projects   Project[]
+  costCenters CostCenter[]
 
   @@map("companies")
+}
+
+// ============================================================================
+// AUTHENTICATION
+// ============================================================================
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  isRevoked Boolean  @default(false)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
 }
 
 // ============================================================================
@@ -185,42 +123,29 @@ model Company {
 // ============================================================================
 
 model ChartOfAccount {
-  id                String           @id @default(cuid())
-  companyId         String
-  accountCode       String
-  accountName       String
-  accountType       AccountType
-  accountCategory   AccountCategory
-  parentAccountId   String?
-  description       String?
-  isActive          Boolean          @default(true)
-  isSystem          Boolean          @default(false)
-  openingBalance    Decimal          @default(0) @db.Decimal(15, 2)
-  currentBalance    Decimal          @default(0) @db.Decimal(15, 2)
-  currency          String           @default("USD")
-  taxCode           String?
-  allowManualEntries Boolean          @default(true)
-  requireApproval   Boolean          @default(false)
-  sortOrder         Int              @default(0)
-  level             Int              @default(0)
-  path              String[]
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  createdBy         String
-  updatedBy         String
-  isDeleted         Boolean          @default(false)
-  version           Int              @default(1)
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  type        AccountType
+  category    AccountCategory
+  parentId    String?
+  companyId   String
+  isActive    Boolean  @default(true)
+  description String?
+  balance     Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+  updatedBy   String
+  isDeleted   Boolean  @default(false)
+  version     Int      @default(1)
 
   // Relations
-  company           Company          @relation(fields: [companyId], references: [id])
-  parentAccount     ChartOfAccount?  @relation("AccountHierarchy", fields: [parentAccountId], references: [id])
-  childAccounts     ChartOfAccount[] @relation("AccountHierarchy")
+  company     Company @relation(fields: [companyId], references: [id])
+  parent      ChartOfAccount? @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    ChartOfAccount[] @relation("AccountHierarchy")
   journalEntryLines JournalEntryLine[]
-  invoiceItems      InvoiceItem[]
-  billItems         BillItem[]
-  taxCodeRef        TaxCode?         @relation(fields: [taxCode], references: [id])
 
-  @@unique([companyId, accountCode])
   @@map("chart_of_accounts")
 }
 
@@ -229,71 +154,44 @@ model ChartOfAccount {
 // ============================================================================
 
 model JournalEntry {
-  id                  String              @id @default(cuid())
-  companyId           String
-  documentNumber      String              @unique
-  entryDate           DateTime
-  postingDate         DateTime
-  status              JournalEntryStatus  @default(DRAFT)
-  entryType           String
-  reference           String?
-  notes               String?
-  isRecurring         Boolean             @default(false)
-  recurringPattern    Json?
-  isReversed          Boolean             @default(false)
-  reversedEntryId     String?
-  approvalStatus      String              @default("PENDING")
-  approvedBy          String?
-  approvedAt          DateTime?
-  totalDebit          Decimal             @db.Decimal(15, 2)
-  totalCredit         Decimal             @db.Decimal(15, 2)
-  currency            String              @default("USD")
-  exchangeRate        Decimal             @default(1) @db.Decimal(10, 6)
-  baseCurrencyAmount  Decimal             @db.Decimal(15, 2)
-  tags                String[]
-  attachments         String[]
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  createdBy           String
-  updatedBy           String
-  isDeleted           Boolean             @default(false)
-  version             Int                 @default(1)
+  id          String   @id @default(cuid())
+  number      String   @unique
+  date        DateTime
+  reference   String?
+  description String
+  status      JournalEntryStatus @default(DRAFT)
+  companyId   String
+  createdBy   String
+  approvedBy  String?
+  approvedAt  DateTime?
+  postedAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+  version     Int      @default(1)
 
   // Relations
-  company             Company             @relation(fields: [companyId], references: [id])
-  lines               JournalEntryLine[]
-  auditLogs           AuditLog[]
-  reversedEntry       JournalEntry?       @relation("JournalEntryReversal", fields: [reversedEntryId], references: [id])
-  reversals           JournalEntry[]      @relation("JournalEntryReversal")
+  company     Company @relation(fields: [companyId], references: [id])
+  user        User    @relation(fields: [createdBy], references: [id])
+  lines       JournalEntryLine[]
 
   @@map("journal_entries")
 }
 
 model JournalEntryLine {
-  id            String   @id @default(cuid())
-  journalEntryId String  @id
-  accountId     String
-  description  String
-  debitAmount  Decimal  @default(0) @db.Decimal(15, 2)
-  creditAmount Decimal  @default(0) @db.Decimal(15, 2)
-  taxAmount    Decimal  @default(0) @db.Decimal(15, 2)
-  taxCode      String?
-  projectId    String?
-  costCenterId String?
-  reference    String?
-  sortOrder    Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  createdBy    String
-  updatedBy    String
-  isDeleted    Boolean  @default(false)
-  version      Int      @default(1)
+  id              String   @id @default(cuid())
+  journalEntryId  String
+  accountId       String
+  debit           Decimal  @default(0) @db.Decimal(15, 2)
+  credit          Decimal  @default(0) @db.Decimal(15, 2)
+  description     String?
+  reference       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
-  journalEntry JournalEntry    @relation(fields: [journalEntryId], references: [id])
-  account      ChartOfAccount  @relation(fields: [accountId], references: [id])
-  project      Project?        @relation(fields: [projectId], references: [id])
-  costCenter   CostCenter?     @relation(fields: [costCenterId], references: [id])
+  journalEntry    JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account         ChartOfAccount @relation(fields: [accountId], references: [id])
 
   @@map("journal_entry_lines")
 }
@@ -303,144 +201,104 @@ model JournalEntryLine {
 // ============================================================================
 
 model Invoice {
-  id                String        @id @default(cuid())
-  companyId         String
-  invoiceNumber     String        @unique
-  invoiceDate       DateTime
-  dueDate           DateTime
-  status            InvoiceStatus  @default(DRAFT)
-  customerId        String
-  billingAddress    Json
-  shippingAddress   Json?
-  currency          String        @default("USD")
-  exchangeRate      Decimal       @default(1) @db.Decimal(10, 6)
-  subtotal          Decimal       @db.Decimal(15, 2)
-  taxAmount         Decimal       @default(0) @db.Decimal(15, 2)
-  discountAmount    Decimal       @default(0) @db.Decimal(15, 2)
-  totalAmount       Decimal       @db.Decimal(15, 2)
-  paidAmount        Decimal       @default(0) @db.Decimal(15, 2)
-  balanceAmount     Decimal       @db.Decimal(15, 2)
-  paymentTerms      String
-  notes             String?
-  terms             String?
-  reference         String?
-  tags              String[]
-  sentAt            DateTime?
-  viewedAt          DateTime?
-  paidAt            DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String
-  updatedBy         String
-  isDeleted         Boolean       @default(false)
-  version           Int           @default(1)
+  id          String   @id @default(cuid())
+  number      String   @unique
+  type        InvoiceType
+  date        DateTime
+  dueDate     DateTime?
+  customerId  String?
+  vendorId    String?
+  status      InvoiceStatus @default(DRAFT)
+  subtotal    Decimal  @default(0) @db.Decimal(15, 2)
+  taxAmount   Decimal  @default(0) @db.Decimal(15, 2)
+  discountAmount Decimal @default(0) @db.Decimal(15, 2)
+  total       Decimal  @default(0) @db.Decimal(15, 2)
+  notes       String?
+  terms       String?
+  companyId   String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+  version     Int      @default(1)
 
   // Relations
-  company           Company       @relation(fields: [companyId], references: [id])
-  customer          Customer      @relation(fields: [customerId], references: [id])
-  items             InvoiceItem[]
-  payments          Payment[]
-  auditLogs         AuditLog[]
+  company     Company @relation(fields: [companyId], references: [id])
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  vendor      Vendor? @relation(fields: [vendorId], references: [id])
+  user        User    @relation(fields: [createdBy], references: [id])
+  items       InvoiceItem[]
+  payments    Payment[]
 
   @@map("invoices")
 }
 
 model InvoiceItem {
-  id            String   @id @default(cuid())
-  invoiceId     String
-  itemId        String?
-  description  String
-  quantity     Decimal  @db.Decimal(10, 3)
-  unitPrice    Decimal  @db.Decimal(15, 2)
-  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  id          String   @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Decimal  @default(1) @db.Decimal(10, 3)
+  unitPrice   Decimal  @default(0) @db.Decimal(15, 2)
+  taxRate     Decimal  @default(0) @db.Decimal(5, 2)
+  taxAmount   Decimal  @default(0) @db.Decimal(15, 2)
+  discountRate Decimal @default(0) @db.Decimal(5, 2)
   discountAmount Decimal @default(0) @db.Decimal(15, 2)
-  taxAmount    Decimal  @default(0) @db.Decimal(15, 2)
-  lineTotal    Decimal  @db.Decimal(15, 2)
-  accountId    String
-  projectId    String?
-  costCenterId String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  createdBy    String
-  updatedBy    String
-  isDeleted    Boolean  @default(false)
-  version      Int      @default(1)
+  total       Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  invoice      Invoice       @relation(fields: [invoiceId], references: [id])
-  account      ChartOfAccount @relation(fields: [accountId], references: [id])
-  project      Project?      @relation(fields: [projectId], references: [id])
-  costCenter   CostCenter?   @relation(fields: [costCenterId], references: [id])
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@map("invoice_items")
 }
 
 model Bill {
-  id                String        @id @default(cuid())
-  companyId         String
-  billNumber        String        @unique
-  billDate          DateTime
-  dueDate           DateTime
-  status            InvoiceStatus  @default(DRAFT)
-  vendorId          String
-  currency          String        @default("USD")
-  exchangeRate      Decimal       @default(1) @db.Decimal(10, 6)
-  subtotal          Decimal       @db.Decimal(15, 2)
-  taxAmount         Decimal       @default(0) @db.Decimal(15, 2)
-  discountAmount    Decimal       @default(0) @db.Decimal(15, 2)
-  totalAmount       Decimal       @db.Decimal(15, 2)
-  paidAmount        Decimal       @default(0) @db.Decimal(15, 2)
-  balanceAmount     Decimal       @db.Decimal(15, 2)
-  paymentTerms      String
-  notes             String?
-  terms             String?
-  reference         String?
-  purchaseOrderId   String?
-  receiptId         String?
-  tags              String[]
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String
-  updatedBy         String
-  isDeleted         Boolean       @default(false)
-  version           Int           @default(1)
+  id          String   @id @default(cuid())
+  number      String   @unique
+  date        DateTime
+  dueDate     DateTime?
+  vendorId    String
+  status      BillStatus @default(DRAFT)
+  subtotal    Decimal  @default(0) @db.Decimal(15, 2)
+  taxAmount   Decimal  @default(0) @db.Decimal(15, 2)
+  discountAmount Decimal @default(0) @db.Decimal(15, 2)
+  total       Decimal  @default(0) @db.Decimal(15, 2)
+  notes       String?
+  terms       String?
+  companyId   String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+  version     Int      @default(1)
 
   // Relations
-  company           Company       @relation(fields: [companyId], references: [id])
-  vendor            Vendor        @relation(fields: [vendorId], references: [id])
-  items             BillItem[]
-  payments          Payment[]
-  auditLogs         AuditLog[]
+  company     Company @relation(fields: [companyId], references: [id])
+  vendor      Vendor  @relation(fields: [vendorId], references: [id])
+  user        User    @relation(fields: [createdBy], references: [id])
+  items       BillItem[]
+  payments    Payment[]
 
   @@map("bills")
 }
 
 model BillItem {
-  id            String   @id @default(cuid())
-  billId        String
-  itemId        String?
-  description  String
-  quantity     Decimal  @db.Decimal(10, 3)
-  unitPrice    Decimal  @db.Decimal(15, 2)
-  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  id          String   @id @default(cuid())
+  billId      String
+  description String
+  quantity    Decimal  @default(1) @db.Decimal(10, 3)
+  unitPrice   Decimal  @default(0) @db.Decimal(15, 2)
+  taxRate     Decimal  @default(0) @db.Decimal(5, 2)
+  taxAmount   Decimal  @default(0) @db.Decimal(15, 2)
+  discountRate Decimal @default(0) @db.Decimal(5, 2)
   discountAmount Decimal @default(0) @db.Decimal(15, 2)
-  taxAmount    Decimal  @default(0) @db.Decimal(15, 2)
-  lineTotal    Decimal  @db.Decimal(15, 2)
-  accountId    String
-  projectId    String?
-  costCenterId String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  createdBy    String
-  updatedBy    String
-  isDeleted    Boolean  @default(false)
-  version      Int      @default(1)
+  total       Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  bill         Bill           @relation(fields: [billId], references: [id])
-  account      ChartOfAccount @relation(fields: [accountId], references: [id])
-  project      Project?       @relation(fields: [projectId], references: [id])
-  costCenter   CostCenter?    @relation(fields: [costCenterId], references: [id])
+  bill        Bill    @relation(fields: [billId], references: [id], onDelete: Cascade)
 
   @@map("bill_items")
 }
@@ -450,124 +308,58 @@ model BillItem {
 // ============================================================================
 
 model Customer {
-  id                String   @id @default(cuid())
-  companyId         String
-  customerNumber    String   @unique
-  companyName       String
-  contactName       String?
-  email             String
-  phone             String?
-  website           String?
-  taxId             String?
-  creditLimit       Decimal  @default(0) @db.Decimal(15, 2)
-  paymentTerms      String
-  defaultCurrency   String   @default("USD")
-  isActive          Boolean  @default(true)
-  notes             String?
-  tags              String[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  createdBy         String
-  updatedBy         String
-  isDeleted         Boolean  @default(false)
-  version           Int      @default(1)
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  email       String?
+  phone       String?
+  address     Json?
+  taxId       String?
+  creditLimit Decimal  @default(0) @db.Decimal(15, 2)
+  balance     Decimal  @default(0) @db.Decimal(15, 2)
+  isActive    Boolean  @default(true)
+  companyId   String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+  version     Int      @default(1)
 
   // Relations
-  company           Company   @relation(fields: [companyId], references: [id])
-  addresses         Address[]
-  contacts          Contact[]
-  invoices          Invoice[]
-  payments          Payment[]
-  projects          Project[]
-  auditLogs         AuditLog[]
+  company     Company @relation(fields: [companyId], references: [id])
+  user        User    @relation(fields: [createdBy], references: [id])
+  invoices    Invoice[]
+  payments    Payment[]
 
   @@map("customers")
 }
 
 model Vendor {
-  id                String   @id @default(cuid())
-  companyId         String
-  vendorNumber      String   @unique
-  companyName       String
-  contactName       String?
-  email             String
-  phone             String?
-  website           String?
-  taxId             String?
-  creditLimit       Decimal  @default(0) @db.Decimal(15, 2)
-  paymentTerms      String
-  defaultCurrency   String   @default("USD")
-  isActive          Boolean  @default(true)
-  notes             String?
-  tags              String[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  createdBy         String
-  updatedBy         String
-  isDeleted         Boolean  @default(false)
-  version           Int      @default(1)
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  email       String?
+  phone       String?
+  address     Json?
+  taxId       String?
+  creditLimit Decimal  @default(0) @db.Decimal(15, 2)
+  balance     Decimal  @default(0) @db.Decimal(15, 2)
+  isActive    Boolean  @default(true)
+  companyId   String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+  version     Int      @default(1)
 
   // Relations
-  company           Company   @relation(fields: [companyId], references: [id])
-  addresses         Address[]
-  contacts          Contact[]
-  bills             Bill[]
-  payments          Payment[]
-  auditLogs         AuditLog[]
+  company     Company @relation(fields: [companyId], references: [id])
+  user        User    @relation(fields: [createdBy], references: [id])
+  invoices    Invoice[]
+  bills       Bill[]
+  payments    Payment[]
 
   @@map("vendors")
-}
-
-model Address {
-  id            String   @id @default(cuid())
-  customerId    String?
-  vendorId      String?
-  type          String   // BILLING, SHIPPING, BOTH
-  street1       String
-  street2       String?
-  city          String
-  state         String?
-  postalCode    String
-  country       String
-  isDefault     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  createdBy     String
-  updatedBy     String
-  isDeleted     Boolean  @default(false)
-  version       Int      @default(1)
-
-  // Relations
-  customer      Customer? @relation(fields: [customerId], references: [id])
-  vendor        Vendor?   @relation(fields: [vendorId], references: [id])
-
-  @@map("addresses")
-}
-
-model Contact {
-  id            String   @id @default(cuid())
-  customerId    String?
-  vendorId      String?
-  firstName     String
-  lastName      String
-  email         String
-  phone         String?
-  mobile        String?
-  title         String?
-  department    String?
-  isPrimary     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  createdBy     String
-  updatedBy     String
-  isDeleted     Boolean  @default(false)
-  version       Int      @default(1)
-
-  // Relations
-  customer      Customer? @relation(fields: [customerId], references: [id])
-  vendor        Vendor?   @relation(fields: [vendorId], references: [id])
-
-  @@map("contacts")
 }
 
 // ============================================================================
@@ -575,70 +367,34 @@ model Contact {
 // ============================================================================
 
 model Payment {
-  id                    String        @id @default(cuid())
-  companyId             String
-  paymentNumber         String        @unique
-  paymentDate           DateTime
-  amount                Decimal       @db.Decimal(15, 2)
-  currency              String        @default("USD")
-  exchangeRate          Decimal       @default(1) @db.Decimal(10, 6)
-  baseCurrencyAmount    Decimal       @db.Decimal(15, 2)
-  paymentMethod         String
-  status                PaymentStatus @default(PENDING)
-  reference             String?
-  notes                 String?
-  customerId            String?
-  vendorId              String?
-  bankAccountId         String?
-  transactionId         String?
-  processedAt           DateTime?
-  failedAt              DateTime?
-  failureReason         String?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-  createdBy             String
-  updatedBy             String
-  isDeleted             Boolean       @default(false)
-  version               Int           @default(1)
+  id          String   @id @default(cuid())
+  number      String   @unique
+  date        DateTime
+  type        PaymentType
+  method      PaymentMethod
+  amount      Decimal  @default(0) @db.Decimal(15, 2)
+  reference   String?
+  notes       String?
+  invoiceId   String?
+  billId      String?
+  customerId  String?
+  vendorId    String?
+  companyId   String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+  version     Int      @default(1)
 
   // Relations
-  company               Company       @relation(fields: [companyId], references: [id])
-  customer              Customer?     @relation(fields: [customerId], references: [id])
-  vendor                Vendor?       @relation(fields: [vendorId], references: [id])
-  auditLogs             AuditLog[]
+  company     Company @relation(fields: [companyId], references: [id])
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id])
+  bill        Bill? @relation(fields: [billId], references: [id])
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  vendor      Vendor? @relation(fields: [vendorId], references: [id])
+  user        User    @relation(fields: [createdBy], references: [id])
 
   @@map("payments")
-}
-
-// ============================================================================
-// TAX & FINANCIAL
-// ============================================================================
-
-model TaxCode {
-  id            String   @id @default(cuid())
-  companyId     String
-  code          String   @unique
-  name          String
-  rate          Decimal  @db.Decimal(5, 4)
-  taxType       TaxType
-  isCompound    Boolean  @default(false)
-  isRecoverable Boolean  @default(true)
-  isActive      Boolean  @default(true)
-  description   String?
-  effectiveFrom DateTime
-  effectiveTo   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  createdBy     String
-  updatedBy     String
-  isDeleted     Boolean  @default(false)
-  version       Int      @default(1)
-
-  // Relations
-  company       Company          @relation(fields: [companyId], references: [id])
-  accounts      ChartOfAccount[]
-
-  @@map("tax_codes")
 }
 
 // ============================================================================
@@ -646,104 +402,50 @@ model TaxCode {
 // ============================================================================
 
 model Project {
-  id                String   @id @default(cuid())
-  companyId         String
-  projectNumber     String   @unique
-  name              String
-  description       String?
-  startDate         DateTime
-  endDate           DateTime?
-  status            String   @default("ACTIVE") // ACTIVE, ON_HOLD, COMPLETED, CANCELLED
-  customerId        String?
-  budget            Decimal  @default(0) @db.Decimal(15, 2)
-  actualCost        Decimal  @default(0) @db.Decimal(15, 2)
-  estimatedRevenue  Decimal  @default(0) @db.Decimal(15, 2)
-  actualRevenue     Decimal  @default(0) @db.Decimal(15, 2)
-  managerId         String
-  teamMembers       String[]
-  isActive          Boolean  @default(true)
-  notes             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  createdBy         String
-  updatedBy         String
-  isDeleted         Boolean  @default(false)
-  version           Int      @default(1)
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      ProjectStatus @default(ACTIVE)
+  budget      Decimal  @default(0) @db.Decimal(15, 2)
+  companyId   String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isDeleted   Boolean  @default(false)
+  version     Int      @default(1)
 
   // Relations
-  company           Company           @relation(fields: [companyId], references: [id])
-  customer          Customer?         @relation(fields: [customerId], references: [id])
-  manager           User              @relation("ProjectManager", fields: [managerId], references: [id])
-  journalEntryLines JournalEntryLine[]
-  invoiceItems      InvoiceItem[]
-  billItems         BillItem[]
-  auditLogs         AuditLog[]
+  company     Company @relation(fields: [companyId], references: [id])
+  user        User    @relation(fields: [createdBy], references: [id])
 
   @@map("projects")
 }
 
 model CostCenter {
-  id            String   @id @default(cuid())
-  companyId     String
-  code          String
-  name          String
-  description   String?
-  parentId      String?
-  managerId     String?
-  budget        Decimal  @default(0) @db.Decimal(15, 2)
-  actualCost    Decimal  @default(0) @db.Decimal(15, 2)
-  isActive      Boolean  @default(true)
-  sortOrder     Int      @default(0)
-  level         Int      @default(0)
-  path          String[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  createdBy     String
-  updatedBy     String
-  isDeleted     Boolean  @default(false)
-  version       Int      @default(1)
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  parentId    String?
+  companyId   String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+  updatedBy   String
+  isDeleted   Boolean  @default(false)
+  version     Int      @default(1)
 
   // Relations
-  company           Company           @relation(fields: [companyId], references: [id])
-  parent            CostCenter?       @relation("CostCenterHierarchy", fields: [parentId], references: [id])
-  children          CostCenter[]      @relation("CostCenterHierarchy")
-  manager           User?             @relation("CostCenterManager", fields: [managerId], references: [id])
-  journalEntryLines JournalEntryLine[]
-  invoiceItems      InvoiceItem[]
-  billItems         BillItem[]
+  company     Company @relation(fields: [companyId], references: [id])
+  parent      CostCenter? @relation("CostCenterHierarchy", fields: [parentId], references: [id])
+  children    CostCenter[] @relation("CostCenterHierarchy")
+  user        User    @relation(fields: [createdBy], references: [id])
 
-  @@unique([companyId, code])
   @@map("cost_centers")
-}
-
-// ============================================================================
-// AUDIT & TRACKING
-// ============================================================================
-
-model AuditLog {
-  id            String   @id @default(cuid())
-  companyId     String
-  entityType    String
-  entityId      String
-  action        String
-  oldValues     Json?
-  newValues     Json?
-  ipAddress     String?
-  userAgent     String?
-  sessionId     String?
-  userId        String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  createdBy     String
-  updatedBy     String
-  isDeleted     Boolean  @default(false)
-  version       Int      @default(1)
-
-  // Relations
-  company       Company   @relation(fields: [companyId], references: [id])
-  user          User      @relation(fields: [userId], references: [id])
-
-  @@map("audit_logs")
 }
 
 // ============================================================================
@@ -773,12 +475,6 @@ enum MfaType {
   BACKUP_CODES
 }
 
-enum SessionStatus {
-  ACTIVE
-  EXPIRED
-  REVOKED
-}
-
 enum AccountType {
   ASSET
   LIABILITY
@@ -788,26 +484,28 @@ enum AccountType {
 }
 
 enum AccountCategory {
-  CURRENT_ASSET
-  FIXED_ASSET
-  INTANGIBLE_ASSET
-  INVESTMENT
-  CURRENT_LIABILITY
-  LONG_TERM_LIABILITY
-  OWNER_EQUITY
-  RETAINED_EARNINGS
+  CURRENT_ASSETS
+  FIXED_ASSETS
+  CURRENT_LIABILITIES
+  LONG_TERM_LIABILITIES
+  EQUITY
   OPERATING_REVENUE
-  NON_OPERATING_REVENUE
   OPERATING_EXPENSE
+  NON_OPERATING_REVENUE
   NON_OPERATING_EXPENSE
-  COST_OF_GOODS_SOLD
 }
 
 enum JournalEntryStatus {
   DRAFT
-  POSTED
+  PENDING_APPROVAL
   APPROVED
+  POSTED
   VOIDED
+}
+
+enum InvoiceType {
+  SALE
+  PURCHASE
 }
 
 enum InvoiceStatus {
@@ -816,20 +514,37 @@ enum InvoiceStatus {
   VIEWED
   PAID
   OVERDUE
-  CANCELLED
+  VOIDED
 }
 
-enum PaymentStatus {
-  PENDING
-  PARTIAL
+enum BillStatus {
+  DRAFT
+  RECEIVED
+  APPROVED
+  PAID
+  OVERDUE
+  VOIDED
+}
+
+enum PaymentType {
+  RECEIVED
+  SENT
+}
+
+enum PaymentMethod {
+  CASH
+  CHECK
+  BANK_TRANSFER
+  CREDIT_CARD
+  DEBIT_CARD
+  PAYPAL
+  STRIPE
+  OTHER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
   COMPLETED
-  FAILED
-  REFUNDED
-}
-
-enum TaxType {
-  VAT
-  SALES_TAX
-  GST
-  HST
+  CANCELLED
 }

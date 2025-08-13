@@ -1,18 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
-import { Layout } from "./components/Layout";
+import Layout from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
-import { ChartOfAccounts } from "./pages/ChartOfAccounts";
-import { JournalEntries } from "./pages/JournalEntries";
-import { Invoices } from "./pages/Invoices";
-import { Bills } from "./pages/Bills";
-import { Customers } from "./pages/Customers";
-import { Vendors } from "./pages/Vendors";
-import { Payments } from "./pages/Payments";
-import { Projects } from "./pages/Projects";
-import { Reports } from "./pages/Reports";
-import { Settings } from "./pages/Settings";
+import Bills from "./components/Bills";
+import { Login } from "./components/Login";
 import { useAppStore } from "./stores/appStore";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 // Extend Window interface for electronAPI
 declare global {
@@ -33,7 +26,7 @@ declare global {
   }
 }
 
-function App(): React.ReactElement {
+function AppContent(): React.ReactElement {
   const { setAppInfo, setMenuAction } = useAppStore();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -105,18 +98,17 @@ function App(): React.ReactElement {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
-        <Route path="/journal-entries" element={<JournalEntries />} />
-        <Route path="/invoices" element={<Invoices />} />
         <Route path="/bills" element={<Bills />} />
-        <Route path="/customers" element={<Customers />} />
-        <Route path="/vendors" element={<Vendors />} />
-        <Route path="/payments" element={<Payments />} />
-        <Route path="/projects" element={<Projects />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/settings" element={<Settings />} />
       </Routes>
     </Layout>
+  );
+}
+
+function App(): React.ReactElement {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
