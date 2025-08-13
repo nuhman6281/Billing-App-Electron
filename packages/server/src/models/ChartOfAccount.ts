@@ -721,4 +721,68 @@ export class ChartOfAccountService {
 
     return rootAccounts;
   }
+
+  /**
+   * Get chart of accounts statistics
+   */
+  async getStats(companyId: string) {
+    const [
+      totalAccounts,
+      activeAccounts,
+      accountsByType,
+      accountsByCategory
+    ] = await Promise.all([
+      // Total accounts
+      this.prisma.chartOfAccount.count({
+        where: {
+          companyId,
+          isDeleted: false,
+        },
+      }),
+      // Active accounts
+      this.prisma.chartOfAccount.count({
+        where: {
+          companyId,
+          isDeleted: false,
+          isActive: true,
+        },
+      }),
+      // Accounts by type
+      this.prisma.chartOfAccount.groupBy({
+        by: ['type'],
+        where: {
+          companyId,
+          isDeleted: false,
+        },
+        _count: {
+          type: true,
+        },
+      }),
+      // Accounts by category
+      this.prisma.chartOfAccount.groupBy({
+        by: ['category'],
+        where: {
+          companyId,
+          isDeleted: false,
+        },
+        _count: {
+          category: true,
+        },
+      }),
+    ]);
+
+    return {
+      totalAccounts,
+      activeAccounts,
+      inactiveAccounts: totalAccounts - activeAccounts,
+      accountsByType: accountsByType.reduce((acc, item) => {
+        acc[item.type] = item._count.type;
+        return acc;
+      }, {} as Record<string, number>),
+      accountsByCategory: accountsByCategory.reduce((acc, item) => {
+        acc[item.category] = item._count.category;
+        return acc;
+      }, {} as Record<string, number>),
+    };
+  }
 }

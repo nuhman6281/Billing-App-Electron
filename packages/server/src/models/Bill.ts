@@ -618,4 +618,40 @@ export class BillService {
 
     return `BILL-${Date.now()}`;
   }
+
+  /**
+   * Get total count of bills
+   */
+  async getCount(companyId: string): Promise<number> {
+    return this.prisma.bill.count({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+    });
+  }
+
+  /**
+   * Get recent bills
+   */
+  async getRecent(limit: number, companyId: string): Promise<any[]> {
+    return this.prisma.bill.findMany({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+      take: limit,
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        number: true,
+        vendorName: true,
+        total: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+  }
 }

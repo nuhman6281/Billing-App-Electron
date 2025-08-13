@@ -92,8 +92,12 @@ export default function ChartOfAccounts() {
 
       if (response.ok) {
         const data = await response.json();
-        const hierarchicalAccounts = buildAccountHierarchy(data);
-        setAccounts(hierarchicalAccounts);
+        if (data.success && data.data) {
+          const hierarchicalAccounts = buildAccountHierarchy(data.data);
+          setAccounts(hierarchicalAccounts);
+        } else {
+          setAccounts([]);
+        }
       } else {
         throw new Error("Failed to fetch accounts");
       }
@@ -116,7 +120,9 @@ export default function ChartOfAccounts() {
 
       if (response.ok) {
         const data = await response.json();
-        setStats(data);
+        if (data.success && data.data) {
+          setStats(data.data);
+        }
       }
     } catch (error) {
       console.error("Error fetching stats:", error);

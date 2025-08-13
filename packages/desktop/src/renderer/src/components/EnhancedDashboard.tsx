@@ -132,7 +132,9 @@ export default function EnhancedDashboard() {
       
       if (metricsResponse.ok) {
         const metricsData = await metricsResponse.json();
-        setMetrics(metricsData);
+        if (metricsData.success && metricsData.data) {
+          setMetrics(metricsData.data);
+        }
       }
 
       // Fetch recent activity
@@ -142,7 +144,9 @@ export default function EnhancedDashboard() {
       
       if (activityResponse.ok) {
         const activityData = await activityResponse.json();
-        setRecentActivity(activityData);
+        if (activityData.success && activityData.data) {
+          setRecentActivity(activityData.data);
+        }
       }
 
     } catch (error) {

@@ -712,4 +712,115 @@ export class JournalEntryService {
       }
     }
   }
+
+  /**
+   * Get journal entries statistics
+   */
+  async getStats(companyId: string) {
+    const [
+      totalEntries,
+      postedEntries,
+      pendingEntries,
+      totalAmount,
+      entriesByStatus,
+    ] = await Promise.all([
+      // Total entries
+      this.prisma.journalEntry.count({
+        where: {
+          companyId,
+          isDeleted: false,
+        },
+      }),
+      // Posted entries
+      this.prisma.journalEntry.count({
+        where: {
+          companyId,
+          isDeleted: false,
+          status: "POSTED",
+        },
+      }),
+      // Pending entries
+      this.prisma.journalEntry.count({
+        where: {
+          companyId,
+          isDeleted: false,
+          status: "DRAFT",
+        },
+      }),
+      // Total amount (sum of all debits from lines)
+      this.prisma.journalEntryLine.aggregate({
+        where: {
+          journalEntry: {
+            companyId,
+            isDeleted: false,
+            status: "POSTED",
+          },
+        },
+        _sum: {
+          debit: true,
+        },
+      }),
+      // Entries by status
+      this.prisma.journalEntry.groupBy({
+        by: ["status"],
+        where: {
+          companyId,
+          isDeleted: false,
+        },
+        _count: {
+          status: true,
+        },
+      }),
+    ]);
+
+    return {
+      totalEntries,
+      postedEntries,
+      pendingEntries,
+      totalAmount: totalAmount._sum.debit || new Decimal(0),
+      entriesByStatus: entriesByStatus.reduce(
+        (acc, item) => {
+          acc[item.status] = item._count.status;
+          return acc;
+        },
+        {} as Record<string, number>
+      ),
+    };
+  }
+
+  /**
+   * Get total count of journal entries
+   */
+  async getCount(companyId: string): Promise<number> {
+    return this.prisma.journalEntry.count({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+    });
+  }
+
+  /**
+   * Get recent journal entries
+   */
+  async getRecent(limit: number, companyId: string): Promise<any[]> {
+    return this.prisma.journalEntry.findMany({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+      take: limit,
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        number: true,
+        reference: true,
+        totalAmount: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+  }
 }

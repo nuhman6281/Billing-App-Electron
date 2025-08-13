@@ -575,4 +575,16 @@ export class VendorService {
       totalCreditLimit: creditLimits._sum.creditLimit || new Decimal(0),
     };
   }
+
+  /**
+   * Get total count of vendors
+   */
+  async getCount(companyId: string): Promise<number> {
+    return this.prisma.vendor.count({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+    });
+  }
 }

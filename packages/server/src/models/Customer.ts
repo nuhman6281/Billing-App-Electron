@@ -576,4 +576,16 @@ export class CustomerService {
       totalCreditLimit: creditLimits._sum.creditLimit || new Decimal(0),
     };
   }
+
+  /**
+   * Get total count of customers
+   */
+  async getCount(companyId: string): Promise<number> {
+    return this.prisma.customer.count({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+    });
+  }
 }

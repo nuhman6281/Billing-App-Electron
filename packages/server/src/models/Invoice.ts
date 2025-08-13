@@ -625,4 +625,40 @@ export class InvoiceService {
 
     return `INV-${Date.now()}`;
   }
+
+  /**
+   * Get total count of invoices
+   */
+  async getCount(companyId: string): Promise<number> {
+    return this.prisma.invoice.count({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+    });
+  }
+
+  /**
+   * Get recent invoices
+   */
+  async getRecent(limit: number, companyId: string): Promise<any[]> {
+    return this.prisma.invoice.findMany({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+      take: limit,
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        number: true,
+        customerName: true,
+        total: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+  }
 }

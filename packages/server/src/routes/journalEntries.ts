@@ -66,6 +66,40 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
+ * @route   GET /api/journal-entries/stats
+ * @desc    Get journal entries statistics
+ * @access  Private
+ */
+router.get("/stats", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const companyId = req.user?.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company ID is required",
+        code: "MISSING_COMPANY_ID",
+      });
+    }
+
+    const stats = await journalEntryService.getStats(companyId);
+    res.json({
+      success: true,
+      message: "Journal entries stats retrieved successfully",
+      data: stats,
+    });
+  } catch (error: any) {
+    console.error("Error retrieving journal entries stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      code: "INTERNAL_ERROR",
+      error: error.message,
+    });
+  }
+});
+
+/**
  * @route   GET /api/journal-entries/:id
  * @desc    Get a specific journal entry by ID
  * @access  Private

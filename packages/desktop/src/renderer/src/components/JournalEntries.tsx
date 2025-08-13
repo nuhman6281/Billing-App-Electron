@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Plus, Edit, Trash2, Eye, Save, X, AlertCircle } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 interface JournalEntry {
   id: string;
@@ -49,6 +50,7 @@ interface JournalEntryStats {
 }
 
 export default function JournalEntries() {
+  const { getAccessToken } = useAuth();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [accounts, setAccounts] = useState<ChartOfAccount[]>([]);
   const [stats, setStats] = useState<JournalEntryStats>({
@@ -85,7 +87,12 @@ export default function JournalEntries() {
 
   const fetchEntries = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
+      
       const response = await fetch("http://localhost:3001/api/journal-entries", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -94,7 +101,11 @@ export default function JournalEntries() {
 
       if (response.ok) {
         const data = await response.json();
-        setEntries(data);
+        if (data.success && data.data) {
+          setEntries(data.data);
+        } else {
+          setEntries([]);
+        }
       } else {
         throw new Error("Failed to fetch entries");
       }
@@ -108,7 +119,9 @@ export default function JournalEntries() {
 
   const fetchAccounts = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAccessToken();
+      if (!token) return;
+      
       const response = await fetch("http://localhost:3001/api/chart-of-accounts", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -117,7 +130,11 @@ export default function JournalEntries() {
 
       if (response.ok) {
         const data = await response.json();
-        setAccounts(data);
+        if (data.success && data.data) {
+          setAccounts(data.data);
+        } else {
+          setAccounts([]);
+        }
       }
     } catch (error) {
       console.error("Error fetching accounts:", error);
@@ -126,7 +143,9 @@ export default function JournalEntries() {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAccessToken();
+      if (!token) return;
+      
       const response = await fetch("http://localhost:3001/api/journal-entries/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -135,7 +154,9 @@ export default function JournalEntries() {
 
       if (response.ok) {
         const data = await response.json();
-        setStats(data);
+        if (data.success && data.data) {
+          setStats(data.data);
+        }
       }
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -183,7 +204,12 @@ export default function JournalEntries() {
     }
 
     try {
-      const token = localStorage.getItem("token");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
+      
       const url = editingEntry
         ? `http://localhost:3001/api/journal-entries/${editingEntry.id}`
         : "http://localhost:3001/api/journal-entries";

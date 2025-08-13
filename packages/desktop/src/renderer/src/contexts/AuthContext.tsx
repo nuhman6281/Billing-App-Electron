@@ -31,6 +31,7 @@ interface AuthContextType {
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
   refreshAuth: () => Promise<void>;
+  getAccessToken: () => string | null;
 }
 
 interface RegisterData {
@@ -264,6 +265,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const getAccessToken = (): string | null => {
+    return tokens?.accessToken || null;
+  };
+
   const value: AuthContextType = {
     user,
     tokens,
@@ -273,6 +278,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     refreshAuth,
+    getAccessToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

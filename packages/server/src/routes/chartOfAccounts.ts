@@ -54,6 +54,40 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
+ * @route   GET /api/chart-of-accounts/stats
+ * @desc    Get chart of accounts statistics
+ * @access  Private
+ */
+router.get("/stats", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const companyId = req.user?.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company ID is required",
+        code: "MISSING_COMPANY_ID",
+      });
+    }
+
+    const stats = await chartOfAccountService.getStats(companyId);
+    res.json({
+      success: true,
+      message: "Chart of accounts stats retrieved successfully",
+      data: stats,
+    });
+  } catch (error: any) {
+    console.error("Error retrieving chart of accounts stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      code: "INTERNAL_ERROR",
+      error: error.message,
+    });
+  }
+});
+
+/**
  * @route   GET /api/chart-of-accounts/tree
  * @desc    Get chart of accounts as a hierarchical tree
  * @access  Private

@@ -16,6 +16,7 @@ import customerRoutes from "./routes/customers";
 import vendorRoutes from "./routes/vendors";
 import invoiceRoutes from "./routes/invoices";
 import billRoutes from "./routes/bills";
+import dashboardRoutes from "./routes/dashboard";
 
 const app = express();
 
@@ -73,6 +74,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/bills", billRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
