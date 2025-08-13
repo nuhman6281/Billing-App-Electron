@@ -30,6 +30,7 @@ const navigation = [
   { name: "Projects", href: "/projects", icon: FolderOpen },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Data Import/Export", href: "/data-import-export", icon: FileText },
+  { name: "User Management", href: "/advanced-user-management", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

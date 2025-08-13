@@ -2,12 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Users, 
-  FileText, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Users,
+  FileText,
   Calendar,
   Download,
   Filter,
@@ -15,7 +15,7 @@ import {
   PieChart,
   LineChart,
   Activity,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 
 interface FinancialMetrics {
@@ -68,11 +68,11 @@ export default function Reports() {
   });
   const [revenueChartData, setRevenueChartData] = useState<ChartData>({
     labels: [],
-    datasets: []
+    datasets: [],
   });
   const [expenseChartData, setExpenseChartData] = useState<ChartData>({
     labels: [],
-    datasets: []
+    datasets: [],
   });
   const [cashFlowData, setCashFlowData] = useState<TimeSeriesData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,22 +86,28 @@ export default function Reports() {
     try {
       setIsLoading(true);
       const token = localStorage.getItem("token");
-      
+
       // Fetch financial metrics
-      const metricsResponse = await fetch(`http://localhost:3001/api/reports/metrics?period=${selectedPeriod}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
+      const metricsResponse = await fetch(
+        `http://localhost:3001/api/reports/metrics?period=${selectedPeriod}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
       if (metricsResponse.ok) {
         const metricsData = await metricsResponse.json();
         setMetrics(metricsData);
       }
 
       // Fetch chart data
-      const chartResponse = await fetch(`http://localhost:3001/api/reports/charts?period=${selectedPeriod}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
+      const chartResponse = await fetch(
+        `http://localhost:3001/api/reports/charts?period=${selectedPeriod}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
       if (chartResponse.ok) {
         const chartData = await chartResponse.json();
         setRevenueChartData(chartData.revenue);
@@ -109,15 +115,17 @@ export default function Reports() {
       }
 
       // Fetch cash flow data
-      const cashFlowResponse = await fetch(`http://localhost:3001/api/reports/cash-flow?period=${selectedPeriod}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
+      const cashFlowResponse = await fetch(
+        `http://localhost:3001/api/reports/cash-flow?period=${selectedPeriod}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
       if (cashFlowResponse.ok) {
         const cashFlowData = await cashFlowResponse.json();
         setCashFlowData(cashFlowData);
       }
-
     } catch (error) {
       console.error("Error fetching report data:", error);
       setError("Failed to load report data");
@@ -126,17 +134,20 @@ export default function Reports() {
     }
   };
 
-  const exportReport = async (format: 'pdf' | 'csv' | 'excel') => {
+  const exportReport = async (format: "pdf" | "csv" | "excel") => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:3001/api/reports/export?format=${format}&period=${selectedPeriod}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
+      const response = await fetch(
+        `http://localhost:3001/api/reports/export?format=${format}&period=${selectedPeriod}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
         a.download = `financial-report-${selectedPeriod}days.${format}`;
         a.click();
@@ -161,11 +172,11 @@ export default function Reports() {
   };
 
   const formatCurrency = (value: string) => {
-    return `$${parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `$${parseFloat(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatPercentage = (value: number) => {
-    return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+    return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
   };
 
   if (isLoading) {
@@ -181,17 +192,19 @@ export default function Reports() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Financial Reports & Analytics</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Financial Reports & Analytics
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
             Comprehensive financial insights and business intelligence
           </p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => exportReport('pdf')}>
+          <Button variant="outline" onClick={() => exportReport("pdf")}>
             <Download className="h-4 w-4 mr-2" />
             Export PDF
           </Button>
-          <Button variant="outline" onClick={() => exportReport('excel')}>
+          <Button variant="outline" onClick={() => exportReport("excel")}>
             <Download className="h-4 w-4 mr-2" />
             Export Excel
           </Button>
@@ -203,7 +216,9 @@ export default function Reports() {
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Time Period</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Time Period
+              </label>
               <select
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -216,7 +231,9 @@ export default function Reports() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Report Type
+              </label>
               <select
                 value={selectedReport}
                 onChange={(e) => setSelectedReport(e.target.value)}
@@ -237,13 +254,19 @@ export default function Reports() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Revenue
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(metrics.totalRevenue)}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(metrics.totalRevenue)}
+            </div>
             <div className="flex items-center mt-1">
               {getGrowthIcon(metrics.revenueGrowth)}
-              <span className={`ml-1 text-sm ${getGrowthColor(metrics.revenueGrowth)}`}>
+              <span
+                className={`ml-1 text-sm ${getGrowthColor(metrics.revenueGrowth)}`}
+              >
                 {formatPercentage(metrics.revenueGrowth)}
               </span>
             </div>
@@ -252,13 +275,19 @@ export default function Reports() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Expenses</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Expenses
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatCurrency(metrics.totalExpenses)}</div>
+            <div className="text-2xl font-bold text-red-600">
+              {formatCurrency(metrics.totalExpenses)}
+            </div>
             <div className="flex items-center mt-1">
               {getGrowthIcon(metrics.expenseGrowth)}
-              <span className={`ml-1 text-sm ${getGrowthColor(metrics.expenseGrowth)}`}>
+              <span
+                className={`ml-1 text-sm ${getGrowthColor(metrics.expenseGrowth)}`}
+              >
                 {formatPercentage(metrics.expenseGrowth)}
               </span>
             </div>
@@ -267,10 +296,14 @@ export default function Reports() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Net Profit</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Net Profit
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${parseFloat(metrics.netProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div
+              className={`text-2xl font-bold ${parseFloat(metrics.netProfit) >= 0 ? "text-green-600" : "text-red-600"}`}
+            >
               {formatCurrency(metrics.netProfit)}
             </div>
             <div className="text-sm text-gray-500 mt-1">
@@ -281,15 +314,17 @@ export default function Reports() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Cash Flow</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Cash Flow
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${parseFloat(metrics.cashFlow) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div
+              className={`text-2xl font-bold ${parseFloat(metrics.cashFlow) >= 0 ? "text-green-600" : "text-red-600"}`}
+            >
               {formatCurrency(metrics.cashFlow)}
             </div>
-            <div className="text-sm text-gray-500 mt-1">
-              Net cash position
-            </div>
+            <div className="text-sm text-gray-500 mt-1">Net cash position</div>
           </CardContent>
         </Card>
       </div>
@@ -298,10 +333,14 @@ export default function Reports() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Accounts Receivable</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Accounts Receivable
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold text-blue-600">{formatCurrency(metrics.accountsReceivable)}</div>
+            <div className="text-xl font-bold text-blue-600">
+              {formatCurrency(metrics.accountsReceivable)}
+            </div>
             <div className="text-sm text-gray-500 mt-1">
               Outstanding: {formatCurrency(metrics.outstandingInvoices)}
             </div>
@@ -310,10 +349,14 @@ export default function Reports() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Accounts Payable</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Accounts Payable
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold text-orange-600">{formatCurrency(metrics.accountsPayable)}</div>
+            <div className="text-xl font-bold text-orange-600">
+              {formatCurrency(metrics.accountsPayable)}
+            </div>
             <div className="text-sm text-gray-500 mt-1">
               Overdue: {formatCurrency(metrics.overdueBills)}
             </div>
@@ -322,7 +365,9 @@ export default function Reports() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Quick Actions</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Quick Actions
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -354,8 +399,12 @@ export default function Reports() {
               {revenueChartData.labels.length > 0 ? (
                 <div className="text-center">
                   <BarChart3 className="h-16 w-16 mx-auto text-gray-400 mb-2" />
-                  <p className="text-gray-500">Revenue chart would be rendered here</p>
-                  <p className="text-sm text-gray-400">Using Chart.js or similar library</p>
+                  <p className="text-gray-500">
+                    Revenue chart would be rendered here
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Using Chart.js or similar library
+                  </p>
                 </div>
               ) : (
                 <div className="text-center text-gray-500">
@@ -380,8 +429,12 @@ export default function Reports() {
               {expenseChartData.labels.length > 0 ? (
                 <div className="text-center">
                   <PieChart className="h-16 w-16 mx-auto text-gray-400 mb-2" />
-                  <p className="text-gray-500">Expense chart would be rendered here</p>
-                  <p className="text-sm text-gray-400">Using Chart.js or similar library</p>
+                  <p className="text-gray-500">
+                    Expense chart would be rendered here
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Using Chart.js or similar library
+                  </p>
                 </div>
               ) : (
                 <div className="text-center text-gray-500">
@@ -407,8 +460,12 @@ export default function Reports() {
             {cashFlowData.length > 0 ? (
               <div className="text-center">
                 <LineChart className="h-16 w-16 mx-auto text-gray-400 mb-2" />
-                <p className="text-gray-500">Cash flow chart would be rendered here</p>
-                <p className="text-sm text-gray-400">Showing revenue, expenses, and profit over time</p>
+                <p className="text-gray-500">
+                  Cash flow chart would be rendered here
+                </p>
+                <p className="text-sm text-gray-400">
+                  Showing revenue, expenses, and profit over time
+                </p>
               </div>
             ) : (
               <div className="text-center text-gray-500">
@@ -432,10 +489,14 @@ export default function Reports() {
                 <div className="flex items-center">
                   <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
                   <div>
-                    <h4 className="font-medium text-yellow-800">Low Profit Margin</h4>
+                    <h4 className="font-medium text-yellow-800">
+                      Low Profit Margin
+                    </h4>
                     <p className="text-yellow-700 text-sm mt-1">
-                      Your current profit margin of {metrics.profitMargin.toFixed(1)}% is below the recommended 15%. 
-                      Consider reviewing pricing strategies and cost controls.
+                      Your current profit margin of{" "}
+                      {metrics.profitMargin.toFixed(1)}% is below the
+                      recommended 15%. Consider reviewing pricing strategies and
+                      cost controls.
                     </p>
                   </div>
                 </div>
@@ -449,23 +510,28 @@ export default function Reports() {
                   <div>
                     <h4 className="font-medium text-red-800">Overdue Bills</h4>
                     <p className="text-red-700 text-sm mt-1">
-                      You have {formatCurrency(metrics.overdueBills)} in overdue bills. 
-                      Review payment terms and consider early payment discounts.
+                      You have {formatCurrency(metrics.overdueBills)} in overdue
+                      bills. Review payment terms and consider early payment
+                      discounts.
                     </p>
                   </div>
                 </div>
               </div>
             )}
 
-            {parseFloat(metrics.outstandingInvoices) > parseFloat(metrics.accountsPayable) * 1.5 && (
+            {parseFloat(metrics.outstandingInvoices) >
+              parseFloat(metrics.accountsPayable) * 1.5 && (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center">
                   <AlertCircle className="h-5 w-5 text-blue-600 mr-2" />
                   <div>
-                    <h4 className="font-medium text-blue-800">High Accounts Receivable</h4>
+                    <h4 className="font-medium text-blue-800">
+                      High Accounts Receivable
+                    </h4>
                     <p className="text-blue-700 text-sm mt-1">
-                      Your accounts receivable is significantly higher than accounts payable. 
-                      Consider implementing stricter payment terms or early payment incentives.
+                      Your accounts receivable is significantly higher than
+                      accounts payable. Consider implementing stricter payment
+                      terms or early payment incentives.
                     </p>
                   </div>
                 </div>
@@ -477,10 +543,13 @@ export default function Reports() {
                 <div className="flex items-center">
                   <TrendingUp className="h-5 w-5 text-green-600 mr-2" />
                   <div>
-                    <h4 className="font-medium text-green-800">Strong Revenue Growth</h4>
+                    <h4 className="font-medium text-green-800">
+                      Strong Revenue Growth
+                    </h4>
                     <p className="text-green-700 text-sm mt-1">
-                      Congratulations! Your revenue has grown by {metrics.revenueGrowth.toFixed(1)}% 
-                      in the selected period. This indicates strong business performance.
+                      Congratulations! Your revenue has grown by{" "}
+                      {metrics.revenueGrowth.toFixed(1)}% in the selected
+                      period. This indicates strong business performance.
                     </p>
                   </div>
                 </div>

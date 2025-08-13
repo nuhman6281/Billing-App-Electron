@@ -11,6 +11,7 @@ import { JournalEntries } from "./pages/JournalEntries";
 import { Payments } from "./pages/Payments";
 import { Reports } from "./pages/Reports";
 import { DataImportExport } from "./pages/DataImportExport";
+import { AdvancedUserManagement } from "./pages/AdvancedUserManagement";
 import { Login } from "./components/Login";
 import { useAppStore } from "./stores/appStore";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -114,6 +115,7 @@ function AppContent(): React.ReactElement {
         <Route path="/payments" element={<Payments />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/data-import-export" element={<DataImportExport />} />
+        <Route path="/advanced-user-management" element={<AdvancedUserManagement />} />
         <Route path="/" element={<Dashboard />} />
       </Routes>
     </Layout>
