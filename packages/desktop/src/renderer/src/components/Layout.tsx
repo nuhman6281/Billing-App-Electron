@@ -29,6 +29,7 @@ const navigation = [
   { name: "Payments", href: "/payments", icon: DollarSign },
   { name: "Projects", href: "/projects", icon: FolderOpen },
   { name: "Reports", href: "/reports", icon: BarChart3 },
+  { name: "Data Import/Export", href: "/data-import-export", icon: FileText },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
