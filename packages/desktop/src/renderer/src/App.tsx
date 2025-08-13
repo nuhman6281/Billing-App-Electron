@@ -3,6 +3,9 @@ import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
 import Bills from "./components/Bills";
+import { Customers } from "./pages/Customers";
+import { Vendors } from "./pages/Vendors";
+import { Invoices } from "./pages/Invoices";
 import { Login } from "./components/Login";
 import { useAppStore } from "./stores/appStore";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -97,8 +100,11 @@ function AppContent(): React.ReactElement {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
         <Route path="/bills" element={<Bills />} />
+        <Route path="/customers" element={<Customers />} />
+        <Route path="/vendors" element={<Vendors />} />
+        <Route path="/invoices" element={<Invoices />} />
+        <Route path="/" element={<Dashboard />} />
       </Routes>
     </Layout>
   );

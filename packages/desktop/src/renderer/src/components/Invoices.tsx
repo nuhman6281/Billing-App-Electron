@@ -14,6 +14,11 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  Receipt,
+  User,
+  DollarSign,
+  Calendar,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -33,7 +38,6 @@ interface Invoice {
   customerId: string;
   date: string;
   dueDate?: string;
-  type: "SALE" | "CREDIT_MEMO";
   status: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "VOIDED";
   subtotal: string;
   taxAmount: string;
@@ -78,7 +82,6 @@ const Invoices: React.FC = () => {
     customerId: "",
     date: "",
     dueDate: "",
-    type: "SALE" as const,
     status: "DRAFT" as const,
     subtotal: "",
     taxAmount: "",
@@ -188,7 +191,6 @@ const Invoices: React.FC = () => {
         customerId: "",
         date: "",
         dueDate: "",
-        type: "SALE",
         status: "DRAFT",
         subtotal: "",
         taxAmount: "",
@@ -317,9 +319,8 @@ const Invoices: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Invoices
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Total Invoices</CardTitle>
+              <Receipt className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalInvoices}</div>
@@ -330,6 +331,7 @@ const Invoices: React.FC = () => {
               <CardTitle className="text-sm font-medium">
                 Total Amount
               </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -340,6 +342,7 @@ const Invoices: React.FC = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600">
@@ -350,6 +353,7 @@ const Invoices: React.FC = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
@@ -512,19 +516,27 @@ const Invoices: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Type</label>
+                <label className="block text-sm font-medium mb-1">Status</label>
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  value={formData.type}
+                  value={formData.status}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      type: e.target.value as "SALE" | "CREDIT_MEMO",
+                      status: e.target.value as
+                        | "DRAFT"
+                        | "SENT"
+                        | "PAID"
+                        | "OVERDUE"
+                        | "VOIDED",
                     }))
                   }
                 >
-                  <option value="SALE">Sale</option>
-                  <option value="CREDIT_MEMO">Credit Memo</option>
+                  <option value="DRAFT">Draft</option>
+                  <option value="SENT">Sent</option>
+                  <option value="PAID">Paid</option>
+                  <option value="OVERDUE">Overdue</option>
+                  <option value="VOIDED">Voided</option>
                 </select>
               </div>
             </div>
@@ -539,10 +551,7 @@ const Invoices: React.FC = () => {
                 placeholder="Enter customer ID"
                 value={formData.customerId}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    customerId: e.target.value,
-                  }))
+                  setFormData((prev) => ({ ...prev, customerId: e.target.value }))
                 }
               />
             </div>
