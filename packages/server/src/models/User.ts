@@ -28,7 +28,7 @@ export interface AuthResponse {
     lastName: string;
     displayName: string;
     role: string;
-    companyId?: string;
+    companyId?: string | null;
   };
   accessToken: string;
   refreshToken: string;
@@ -55,6 +55,22 @@ export class UserService {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(input.password, saltRounds);
 
+    let companyId = input.companyId;
+
+    // If no company ID provided, create a default company for the user
+    if (!companyId) {
+      const defaultCompany = await this.prisma.company.create({
+        data: {
+          name: `${input.displayName}'s Company`,
+          legalName: `${input.displayName}'s Company`,
+          isActive: true,
+          createdBy: "system",
+          updatedBy: "system",
+        },
+      });
+      companyId = defaultCompany.id;
+    }
+
     // Create user
     const user = await this.prisma.user.create({
       data: {
@@ -64,8 +80,8 @@ export class UserService {
         firstName: input.firstName,
         lastName: input.lastName,
         displayName: input.displayName,
-        role: input.role || "VIEWER",
-        companyId: input.companyId,
+        role: (input.role as any) || "VIEWER",
+        companyId: companyId,
         createdBy: "system", // Will be updated when we have proper user management
         updatedBy: "system",
       },
@@ -235,13 +251,13 @@ export class UserService {
     email: string,
     role: string
   ): string {
-    return jwt.sign({ userId, email, role }, config.jwt.secret, {
+    return jwt.sign({ userId, email, role }, config.jwt.secret as string, {
       expiresIn: config.jwt.accessTokenExpiry,
     });
   }
 
   private generateRefreshToken(userId: string): string {
-    return jwt.sign({ userId, type: "refresh" }, config.jwt.secret, {
+    return jwt.sign({ userId, type: "refresh" }, config.jwt.secret as string, {
       expiresIn: config.jwt.refreshTokenExpiry,
     });
   }

@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Check for both token formats for compatibility
         const storedTokens = localStorage.getItem("auth_tokens");
         const legacyToken = localStorage.getItem("token");
-        
+
         if (storedTokens) {
           const parsedTokens = JSON.parse(storedTokens);
           setTokens(parsedTokens);
@@ -72,12 +72,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } else if (legacyToken) {
           // If we only have the legacy token, try to get user info
           try {
-            const response = await fetch("http://localhost:3001/api/auth/profile", {
-              headers: {
-                Authorization: `Bearer ${legacyToken}`,
-              },
-            });
-            
+            const response = await fetch(
+              "http://localhost:3001/api/auth/profile",
+              {
+                headers: {
+                  Authorization: `Bearer ${legacyToken}`,
+                },
+              }
+            );
+
             if (response.ok) {
               const userData = await response.json();
               setUser(userData.data);

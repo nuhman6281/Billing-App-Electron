@@ -79,6 +79,28 @@ async function main() {
 
   console.log('✅ Regular user created:', regularUser.email);
 
+  // Create the user that was trying to login
+  const shibiliUser = await prisma.user.upsert({
+    where: { email: 'shibili.mc@gmail.com' },
+    update: {},
+    create: {
+      username: 'shibili',
+      email: 'shibili.mc@gmail.com',
+      firstName: 'Shibili',
+      lastName: 'MC',
+      displayName: 'Shibili MC',
+      passwordHash: hashedPassword,
+      status: 'ACTIVE',
+      role: 'VIEWER',
+      companyId: company.id,
+      isEmailVerified: true,
+      createdBy: 'system',
+      updatedBy: 'system'
+    }
+  });
+
+  console.log('✅ Shibili user created:', shibiliUser.email);
+
   // Create some basic chart of accounts
   const chartOfAccounts = [
     {
@@ -151,6 +173,7 @@ async function main() {
   console.log('\n📋 Test Credentials:');
   console.log('Admin User: admin@testcompany.com / password123');
   console.log('Regular User: user@testcompany.com / password123');
+  console.log('Shibili User: shibili.mc@gmail.com / password123');
   console.log('Company: Test Company Inc.');
 }
 
