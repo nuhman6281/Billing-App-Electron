@@ -785,4 +785,16 @@ export class ChartOfAccountService {
       }, {} as Record<string, number>),
     };
   }
+
+  /**
+   * Get total count of chart of accounts
+   */
+  async getCount(companyId: string): Promise<number> {
+    return this.prisma.chartOfAccount.count({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+    });
+  }
 }

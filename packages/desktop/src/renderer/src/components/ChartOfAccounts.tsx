@@ -2,7 +2,16 @@ import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Plus, Edit, Trash2, Eye, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
 
 interface ChartOfAccount {
   id: string;
@@ -34,19 +43,47 @@ const accountTypes = [
   { value: "ASSET", label: "Asset", color: "bg-green-100 text-green-800" },
   { value: "LIABILITY", label: "Liability", color: "bg-red-100 text-red-800" },
   { value: "EQUITY", label: "Equity", color: "bg-blue-100 text-blue-800" },
-  { value: "REVENUE", label: "Revenue", color: "bg-purple-100 text-purple-800" },
-  { value: "EXPENSE", label: "Expense", color: "bg-orange-100 text-orange-800" },
+  {
+    value: "REVENUE",
+    label: "Revenue",
+    color: "bg-purple-100 text-purple-800",
+  },
+  {
+    value: "EXPENSE",
+    label: "Expense",
+    color: "bg-orange-100 text-orange-800",
+  },
 ];
 
 const accountCategories = {
-  ASSET: ["Current Assets", "Fixed Assets", "Intangible Assets", "Other Assets"],
-  LIABILITY: ["Current Liabilities", "Long-term Liabilities", "Other Liabilities"],
-  EQUITY: ["Owner's Equity", "Retained Earnings", "Common Stock", "Preferred Stock"],
+  ASSET: [
+    "Current Assets",
+    "Fixed Assets",
+    "Intangible Assets",
+    "Other Assets",
+  ],
+  LIABILITY: [
+    "Current Liabilities",
+    "Long-term Liabilities",
+    "Other Liabilities",
+  ],
+  EQUITY: [
+    "Owner's Equity",
+    "Retained Earnings",
+    "Common Stock",
+    "Preferred Stock",
+  ],
   REVENUE: ["Operating Revenue", "Non-operating Revenue", "Other Income"],
-  EXPENSE: ["Operating Expenses", "Cost of Goods Sold", "Administrative Expenses", "Other Expenses"],
+  EXPENSE: [
+    "Operating Expenses",
+    "Cost of Goods Sold",
+    "Administrative Expenses",
+    "Other Expenses",
+  ],
 };
 
 export default function ChartOfAccounts() {
+  const { getAccessToken } = useAuth();
   const [accounts, setAccounts] = useState<ChartOfAccount[]>([]);
   const [stats, setStats] = useState<ChartOfAccountStats>({
     totalAccounts: 0,
@@ -60,11 +97,13 @@ export default function ChartOfAccounts() {
     expenseBalance: "0.00",
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<ChartOfAccount | null>(null);
+  const [editingAccount, setEditingAccount] = useState<ChartOfAccount | null>(
+    null
+  );
   const [formData, setFormData] = useState({
     code: "",
     name: "",
-    type: "ASSET" as const,
+    type: "ASSET" as "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE",
     category: "",
     parentId: "",
     description: "",
@@ -72,7 +111,9 @@ export default function ChartOfAccounts() {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("");
-  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(
+    new Set()
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,23 +124,21 @@ export default function ChartOfAccounts() {
 
   const fetchAccounts = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/chart-of-accounts", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          const hierarchicalAccounts = buildAccountHierarchy(data.data);
-          setAccounts(hierarchicalAccounts);
-        } else {
-          setAccounts([]);
-        }
+      const data = await api.get<any>(
+        API_ENDPOINTS.CHART_OF_ACCOUNTS.LIST,
+        token
+      );
+      if (data.success && data.data) {
+        const hierarchicalAccounts = buildAccountHierarchy(data.data);
+        setAccounts(hierarchicalAccounts);
       } else {
-        throw new Error("Failed to fetch accounts");
+        setAccounts([]);
       }
     } catch (error) {
       console.error("Error fetching accounts:", error);
@@ -111,35 +150,34 @@ export default function ChartOfAccounts() {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/chart-of-accounts/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const token = getAccessToken();
+      if (!token) return;
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          setStats(data.data);
-        }
+      const data = await api.get<any>(
+        API_ENDPOINTS.CHART_OF_ACCOUNTS.STATS,
+        token
+      );
+      if (data.success && data.data) {
+        setStats(data.data);
       }
     } catch (error) {
       console.error("Error fetching stats:", error);
     }
   };
 
-  const buildAccountHierarchy = (flatAccounts: ChartOfAccount[]): ChartOfAccount[] => {
+  const buildAccountHierarchy = (
+    flatAccounts: ChartOfAccount[]
+  ): ChartOfAccount[] => {
     const accountMap = new Map<string, ChartOfAccount>();
     const rootAccounts: ChartOfAccount[] = [];
 
     // Create a map of all accounts
-    flatAccounts.forEach(account => {
+    flatAccounts.forEach((account) => {
       accountMap.set(account.id, { ...account, children: [], level: 0 });
     });
 
     // Build hierarchy
-    flatAccounts.forEach(account => {
+    flatAccounts.forEach((account) => {
       if (account.parentId && accountMap.has(account.parentId)) {
         const parent = accountMap.get(account.parentId)!;
         const child = accountMap.get(account.id)!;
@@ -156,31 +194,27 @@ export default function ChartOfAccounts() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem("token");
-      const url = editingAccount
-        ? `http://localhost:3001/api/chart-of-accounts/${editingAccount.id}`
-        : "http://localhost:3001/api/chart-of-accounts";
-      
-      const method = editingAccount ? "PUT" : "POST";
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        setIsModalOpen(false);
-        setEditingAccount(null);
-        resetForm();
-        fetchAccounts();
-        fetchStats();
-      } else {
-        throw new Error("Failed to save account");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
+
+      if (editingAccount) {
+        await api.put<any>(
+          `/chart-of-accounts/${editingAccount.id}`,
+          formData,
+          token
+        );
+      } else {
+        await api.post<any>("/chart-of-accounts", formData, token);
+      }
+
+      setIsModalOpen(false);
+      setEditingAccount(null);
+      resetForm();
+      fetchAccounts();
+      fetchStats();
     } catch (error) {
       console.error("Error saving account:", error);
       setError("Failed to save account");
@@ -191,20 +225,15 @@ export default function ChartOfAccounts() {
     if (!confirm("Are you sure you want to delete this account?")) return;
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:3001/api/chart-of-accounts/${accountId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        fetchAccounts();
-        fetchStats();
-      } else {
-        throw new Error("Failed to delete account");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
+
+      await api.delete<any>(`/chart-of-accounts/${accountId}`, token);
+      fetchAccounts();
+      fetchStats();
     } catch (error) {
       console.error("Error deleting account:", error);
       setError("Failed to delete account");
@@ -247,19 +276,22 @@ export default function ChartOfAccounts() {
     setExpandedAccounts(newExpanded);
   };
 
-  const filteredAccounts = accounts.filter(account => {
-    const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         account.code.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredAccounts = accounts.filter((account) => {
+    const matchesSearch =
+      account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.code.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = !filterType || account.type === filterType;
     return matchesSearch && matchesType;
   });
 
   const renderAccountTree = (accountList: ChartOfAccount[], level = 0) => {
-    return accountList.map(account => (
+    return accountList.map((account) => (
       <div key={account.id} className="space-y-2">
-        <div className={`flex items-center justify-between p-3 bg-white border rounded-lg hover:bg-gray-50 ${
-          level > 0 ? `ml-${level * 4}` : ""
-        }`}>
+        <div
+          className={`flex items-center justify-between p-3 bg-white border rounded-lg hover:bg-gray-50 ${
+            level > 0 ? `ml-${level * 4}` : ""
+          }`}
+        >
           <div className="flex items-center space-x-3">
             {account.children && account.children.length > 0 && (
               <button
@@ -274,13 +306,19 @@ export default function ChartOfAccounts() {
               </button>
             )}
             <div className="flex items-center space-x-3">
-              <span className="font-mono text-sm text-gray-600">{account.code}</span>
+              <span className="font-mono text-sm text-gray-600">
+                {account.code}
+              </span>
               <span className="font-medium">{account.name}</span>
               <Badge variant={account.isActive ? "default" : "secondary"}>
                 {account.isActive ? "Active" : "Inactive"}
               </Badge>
-              <Badge className={accountTypes.find(t => t.value === account.type)?.color}>
-                {accountTypes.find(t => t.value === account.type)?.label}
+              <Badge
+                className={
+                  accountTypes.find((t) => t.value === account.type)?.color
+                }
+              >
+                {accountTypes.find((t) => t.value === account.type)?.label}
               </Badge>
             </div>
           </div>
@@ -307,11 +345,13 @@ export default function ChartOfAccounts() {
             </div>
           </div>
         </div>
-        {expandedAccounts.has(account.id) && account.children && account.children.length > 0 && (
-          <div className="ml-6">
-            {renderAccountTree(account.children, level + 1)}
-          </div>
-        )}
+        {expandedAccounts.has(account.id) &&
+          account.children &&
+          account.children.length > 0 && (
+            <div className="ml-6">
+              {renderAccountTree(account.children, level + 1)}
+            </div>
+          )}
       </div>
     ));
   };
@@ -329,7 +369,9 @@ export default function ChartOfAccounts() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Chart of Accounts</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Chart of Accounts
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
             Manage your financial accounts and their hierarchy
           </p>
@@ -344,10 +386,14 @@ export default function ChartOfAccounts() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Accounts</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Accounts
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats.totalAccounts}</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {stats.totalAccounts}
+            </div>
             <p className="text-xs text-gray-500">
               {stats.activeAccounts} active, {stats.inactiveAccounts} inactive
             </p>
@@ -355,28 +401,40 @@ export default function ChartOfAccounts() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Balance</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Balance
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">${parseFloat(stats.totalBalance).toFixed(2)}</div>
+            <div className="text-2xl font-bold text-gray-900">
+              ${parseFloat(stats.totalBalance).toFixed(2)}
+            </div>
             <p className="text-xs text-gray-500">Net position</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Assets</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Assets
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">${parseFloat(stats.assetBalance).toFixed(2)}</div>
+            <div className="text-2xl font-bold text-green-600">
+              ${parseFloat(stats.assetBalance).toFixed(2)}
+            </div>
             <p className="text-xs text-gray-500">Total assets</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Liabilities</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Liabilities
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">${parseFloat(stats.liabilityBalance).toFixed(2)}</div>
+            <div className="text-2xl font-bold text-red-600">
+              ${parseFloat(stats.liabilityBalance).toFixed(2)}
+            </div>
             <p className="text-xs text-gray-500">Total liabilities</p>
           </CardContent>
         </Card>
@@ -401,8 +459,10 @@ export default function ChartOfAccounts() {
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Types</option>
-              {accountTypes.map(type => (
-                <option key={type.value} value={type.value}>{type.label}</option>
+              {accountTypes.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
               ))}
             </select>
           </div>
@@ -420,10 +480,13 @@ export default function ChartOfAccounts() {
               <p className="text-red-800">{error}</p>
             </div>
           )}
-          
+
           {filteredAccounts.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              No accounts found. {searchTerm || filterType ? "Try adjusting your filters." : "Create your first account to get started."}
+              No accounts found.{" "}
+              {searchTerm || filterType
+                ? "Try adjusting your filters."
+                : "Create your first account to get started."}
             </div>
           ) : (
             <div className="space-y-2">
@@ -448,12 +511,14 @@ export default function ChartOfAccounts() {
                 <input
                   type="text"
                   value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, code: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Account Name
@@ -461,7 +526,9 @@ export default function ChartOfAccounts() {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
@@ -474,17 +541,19 @@ export default function ChartOfAccounts() {
                 <select
                   value={formData.type}
                   onChange={(e) => {
-                    setFormData({ 
-                      ...formData, 
+                    setFormData({
+                      ...formData,
                       type: e.target.value as any,
-                      category: "" // Reset category when type changes
+                      category: "", // Reset category when type changes
                     });
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  {accountTypes.map(type => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
+                  {accountTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -495,13 +564,17 @@ export default function ChartOfAccounts() {
                 </label>
                 <select
                   value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, category: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="">Select Category</option>
-                  {accountCategories[formData.type]?.map(category => (
-                    <option key={category} value={category}>{category}</option>
+                  {accountCategories[formData.type]?.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -512,11 +585,13 @@ export default function ChartOfAccounts() {
                 </label>
                 <select
                   value={formData.parentId}
-                  onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, parentId: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">No Parent</option>
-                  {accounts.map(account => (
+                  {accounts.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.code} - {account.name}
                     </option>
@@ -530,7 +605,9 @@ export default function ChartOfAccounts() {
                 </label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={3}
                 />
@@ -541,10 +618,15 @@ export default function ChartOfAccounts() {
                   type="checkbox"
                   id="isActive"
                   checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isActive: e.target.checked })
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
+                <label
+                  htmlFor="isActive"
+                  className="ml-2 block text-sm text-gray-900"
+                >
                   Account is active
                 </label>
               </div>

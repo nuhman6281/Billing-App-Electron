@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auth Debug</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+      .success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+      }
+      .error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+      }
+      button {
+        padding: 10px 15px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      .result {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 3px;
+      }
+      .debug {
+        background-color: #e7f3ff;
+        border: 1px solid #b3d9ff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Authentication Debug</h1>
+
+    <div class="test-section">
+      <h3>1. Test Login</h3>
+      <button onclick="testLogin()">Test Login</button>
+      <div id="login-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>2. Check Token Storage</h3>
+      <button onclick="checkTokenStorage()">Check Storage</button>
+      <div id="storage-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>3. Test Token Retrieval</h3>
+      <button onclick="testTokenRetrieval()">Test Retrieval</button>
+      <div id="retrieval-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>4. Test API Call</h3>
+      <button onclick="testApiCall()">Test API</button>
+      <div id="api-result" class="result"></div>
+    </div>
+
+    <div class="test-section debug">
+      <h3>Debug Info</h3>
+      <div id="debug-info"></div>
+    </div>
+
+    <script>
+      let currentToken = null;
+
+      async function testLogin() {
+        const resultDiv = document.getElementById("login-result");
+        resultDiv.innerHTML = "Testing login...";
+        resultDiv.className = "result";
+
+        try {
+          const response = await fetch("http://localhost:3001/api/auth/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email: "shibili.mc@gmail.com",
+              password: "password123",
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.success && data.data) {
+            currentToken = data.data.accessToken;
+
+            // Store tokens in localStorage (same as AuthContext)
+            localStorage.setItem(
+              "auth_tokens",
+              JSON.stringify({
+                accessToken: data.data.accessToken,
+                refreshToken: data.data.refreshToken,
+              })
+            );
+            localStorage.setItem("token", data.data.accessToken);
+
+            resultDiv.innerHTML = `<span style="color: green;">✅ Login successful! Token stored.</span><br>Token: ${currentToken.substring(0, 50)}...`;
+            resultDiv.className = "result success";
+
+            updateDebugInfo();
+          } else {
+            resultDiv.innerHTML = `<span style="color: red;">❌ Login failed: ${data.message}</span>`;
+            resultDiv.className = "result error";
+          }
+        } catch (error) {
+          resultDiv.innerHTML = `<span style="color: red;">❌ Error: ${error.message}</span>`;
+          resultDiv.className = "result error";
+        }
+      }
+
+      function checkTokenStorage() {
+        const resultDiv = document.getElementById("storage-result");
+
+        const authTokens = localStorage.getItem("auth_tokens");
+        const legacyToken = localStorage.getItem("token");
+
+        let html = "<h4>Current Storage:</h4>";
+        html += `<p><strong>auth_tokens:</strong> ${authTokens ? "✅ Set" : "❌ Not set"}</p>`;
+        html += `<p><strong>token:</strong> ${legacyToken ? "✅ Set" : "❌ Not set"}</p>`;
+
+        if (authTokens) {
+          try {
+            const parsed = JSON.parse(authTokens);
+            html += `<p><strong>Parsed auth_tokens:</strong></p>`;
+            html += `<pre>${JSON.stringify(parsed, null, 2)}</pre>`;
+          } catch (e) {
+            html += `<p><strong>Error parsing auth_tokens:</strong> ${e.message}</p>`;
+          }
+        }
+
+        if (legacyToken) {
+          html += `<p><strong>Legacy token:</strong> ${legacyToken.substring(0, 50)}...</p>`;
+        }
+
+        resultDiv.innerHTML = html;
+        resultDiv.className = "result";
+      }
+
+      function testTokenRetrieval() {
+        const resultDiv = document.getElementById("retrieval-result");
+
+        // Simulate the getAccessToken function from AuthContext
+        function getAccessToken() {
+          console.log("getAccessToken called");
+
+          // First try to get from state (simulated)
+          if (currentToken && currentToken !== "null") {
+            console.log("getAccessToken returning from state:", currentToken);
+            return currentToken;
+          }
+
+          // Fallback to localStorage
+          const storedToken = localStorage.getItem("token");
+          console.log(
+            "getAccessToken - storedToken from localStorage:",
+            storedToken
+          );
+          if (
+            storedToken &&
+            storedToken !== "null" &&
+            storedToken !== "undefined"
+          ) {
+            console.log(
+              "getAccessToken returning from localStorage token:",
+              storedToken
+            );
+            return storedToken;
+          }
+
+          // Try to get from auth_tokens
+          const storedTokens = localStorage.getItem("auth_tokens");
+          console.log(
+            "getAccessToken - storedTokens from localStorage:",
+            storedTokens
+          );
+          if (storedTokens) {
+            try {
+              const parsedTokens = JSON.parse(storedTokens);
+              if (
+                parsedTokens.accessToken &&
+                parsedTokens.accessToken !== "null" &&
+                parsedTokens.accessToken !== "undefined"
+              ) {
+                console.log(
+                  "getAccessToken returning from auth_tokens:",
+                  parsedTokens.accessToken
+                );
+                return parsedTokens.accessToken;
+              }
+            } catch (error) {
+              console.error("Error parsing stored tokens:", error);
+            }
+          }
+
+          console.log("getAccessToken returning null");
+          return null;
+        }
+
+        const token = getAccessToken();
+
+        if (token) {
+          resultDiv.innerHTML = `<span style="color: green;">✅ Token retrieved successfully!</span><br>Token: ${token.substring(0, 50)}...`;
+          resultDiv.className = "result success";
+        } else {
+          resultDiv.innerHTML =
+            '<span style="color: red;">❌ No token retrieved</span>';
+          resultDiv.className = "result error";
+        }
+
+        updateDebugInfo();
+      }
+
+      async function testApiCall() {
+        const resultDiv = document.getElementById("api-result");
+
+        // Get token using the same logic
+        let token = currentToken;
+        if (!token) {
+          const storedToken = localStorage.getItem("token");
+          if (
+            storedToken &&
+            storedToken !== "null" &&
+            storedToken !== "undefined"
+          ) {
+            token = storedToken;
+          } else {
+            const storedTokens = localStorage.getItem("auth_tokens");
+            if (storedTokens) {
+              try {
+                const parsedTokens = JSON.parse(storedTokens);
+                if (
+                  parsedTokens.accessToken &&
+                  parsedTokens.accessToken !== "null" &&
+                  parsedTokens.accessToken !== "undefined"
+                ) {
+                  token = parsedTokens.accessToken;
+                }
+              } catch (error) {
+                console.error("Error parsing stored tokens:", error);
+              }
+            }
+          }
+        }
+
+        if (!token) {
+          resultDiv.innerHTML =
+            '<span style="color: orange;">⚠️ No token available for API test</span>';
+          resultDiv.className = "result";
+          return;
+        }
+
+        resultDiv.innerHTML = "Testing API call...";
+        resultDiv.className = "result";
+
+        try {
+          const response = await fetch("http://localhost:3001/api/invoices", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            resultDiv.innerHTML = `<span style="color: green;">✅ API call successful!</span><br>Response: ${JSON.stringify(data, null, 2)}`;
+            resultDiv.className = "result success";
+          } else {
+            resultDiv.innerHTML = `<span style="color: red;">❌ API call failed: ${data.message}</span><br>Status: ${response.status}`;
+            resultDiv.className = "result error";
+          }
+        } catch (error) {
+          resultDiv.innerHTML = `<span style="color: red;">❌ API Error: ${error.message}</span>`;
+          resultDiv.className = "result error";
+        }
+      }
+
+      function updateDebugInfo() {
+        const debugDiv = document.getElementById("debug-info");
+
+        const authTokens = localStorage.getItem("auth_tokens");
+        const legacyToken = localStorage.getItem("token");
+
+        let html = "<h4>Current State:</h4>";
+        html += `<p><strong>Current Token (in memory):</strong> ${currentToken ? "✅ Set" : "❌ Not set"}</p>`;
+        html += `<p><strong>localStorage auth_tokens:</strong> ${authTokens ? "✅ Set" : "❌ Not set"}</p>`;
+        html += `<p><strong>localStorage token:</strong> ${legacyToken ? "✅ Set" : "❌ Not set"}</p>`;
+
+        if (currentToken) {
+          html += `<p><strong>Token Preview:</strong> ${currentToken.substring(0, 50)}...</p>`;
+        }
+
+        debugDiv.innerHTML = html;
+      }
+
+      // Auto-update debug info
+      setInterval(updateDebugInfo, 1000);
+
+      // Initial debug info
+      updateDebugInfo();
+    </script>
+  </body>
+</html>

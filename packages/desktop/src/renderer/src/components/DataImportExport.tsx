@@ -2,20 +2,22 @@ import React, { useState, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { 
-  Upload, 
-  Download, 
-  FileText, 
-  FileSpreadsheet, 
-  CheckCircle, 
+import {
+  Upload,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  CheckCircle,
   AlertCircle,
   X,
   Database,
   Users,
   Building2,
   Receipt,
-  FileText as FileTextIcon
+  FileText as FileTextIcon,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
 
 interface ImportData {
   type: "customers" | "vendors" | "invoices" | "bills" | "chart-of-accounts";
@@ -38,44 +40,45 @@ interface ExportData {
 }
 
 const dataTypes = [
-  { 
-    value: "customers", 
-    label: "Customers", 
-    icon: Users, 
+  {
+    value: "customers",
+    label: "Customers",
+    icon: Users,
     description: "Import/export customer data",
-    fields: ["name", "email", "phone", "address", "company"]
+    fields: ["name", "email", "phone", "address", "company"],
   },
-  { 
-    value: "vendors", 
-    label: "Vendors", 
-    icon: Building2, 
+  {
+    value: "vendors",
+    label: "Vendors",
+    icon: Building2,
     description: "Import/export vendor data",
-    fields: ["name", "email", "phone", "address", "company"]
+    fields: ["name", "email", "phone", "address", "company"],
   },
-  { 
-    value: "invoices", 
-    label: "Invoices", 
-    icon: Receipt, 
+  {
+    value: "invoices",
+    label: "Invoices",
+    icon: Receipt,
     description: "Import/export invoice data",
-    fields: ["number", "date", "customer", "amount", "status"]
+    fields: ["number", "date", "customer", "amount", "status"],
   },
-  { 
-    value: "bills", 
-    label: "Bills", 
-    icon: FileTextIcon, 
+  {
+    value: "bills",
+    label: "Bills",
+    icon: FileTextIcon,
     description: "Import/export bill data",
-    fields: ["number", "date", "vendor", "amount", "status"]
+    fields: ["number", "date", "vendor", "amount", "status"],
   },
-  { 
-    value: "chart-of-accounts", 
-    label: "Chart of Accounts", 
-    icon: Database, 
+  {
+    value: "chart-of-accounts",
+    label: "Chart of Accounts",
+    icon: Database,
     description: "Import/export account data",
-    fields: ["code", "name", "type", "category", "parent"]
-  }
+    fields: ["code", "name", "type", "category", "parent"],
+  },
 ];
 
 export default function DataImportExport() {
+  const { getAccessToken } = useAuth();
   const [activeTab, setActiveTab] = useState<"import" | "export">("import");
   const [selectedDataType, setSelectedDataType] = useState<string>("customers");
   const [importData, setImportData] = useState<ImportData | null>(null);
@@ -84,9 +87,11 @@ export default function DataImportExport() {
     format: "csv",
     filters: {},
     dateRange: {
-      start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      end: new Date().toISOString().split('T')[0]
-    }
+      start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
+      end: new Date().toISOString().split("T")[0],
+    },
   });
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -94,7 +99,9 @@ export default function DataImportExport() {
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -103,25 +110,24 @@ export default function DataImportExport() {
       setError(null);
       setSuccess(null);
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', selectedDataType);
-
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/data/import/validate", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setImportData(data);
-      } else {
-        throw new Error("Failed to validate file");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", selectedDataType);
+
+      // Use the centralized API service instead of hardcoded URL
+      const response = await api.post<any>(
+        API_ENDPOINTS.DATA.IMPORT_VALIDATE,
+        formData,
+        token
+      );
+
+      setImportData(response);
     } catch (error) {
       console.error("Error uploading file:", error);
       setError("Failed to upload and validate file");
@@ -137,28 +143,27 @@ export default function DataImportExport() {
       setIsImporting(true);
       setError(null);
 
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/data/import", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
+
+      // Use the centralized API service instead of hardcoded URL
+      await api.post<any>(
+        API_ENDPOINTS.DATA.IMPORT,
+        {
           type: selectedDataType,
           fileName: importData.fileName,
-          data: importData.preview
-        }),
-      });
+          data: importData.preview,
+        },
+        token
+      );
 
-      if (response.ok) {
-        setSuccess(`Successfully imported ${importData.validRows} records`);
-        setImportData(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      } else {
-        throw new Error("Failed to import data");
+      setSuccess(`Successfully imported ${importData.validRows} records`);
+      setImportData(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
     } catch (error) {
       console.error("Error importing data:", error);
@@ -173,27 +178,30 @@ export default function DataImportExport() {
       setIsExporting(true);
       setError(null);
 
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/data/export", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(exportData),
-      });
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
+      // Use the centralized API service instead of hardcoded URL
+      const response = await api.post<any>(
+        API_ENDPOINTS.DATA.EXPORT,
+        exportData,
+        token
+      );
+
+      // Handle blob response for file download
+      if (response && response.blob) {
+        const url = window.URL.createObjectURL(response.blob);
+        const a = document.createElement("a");
         a.href = url;
-        a.download = `${exportData.type}-${exportData.format}-${new Date().toISOString().split('T')[0]}.${exportData.format}`;
+        a.download = `${exportData.type}-${exportData.format}-${new Date().toISOString().split("T")[0]}.${exportData.format}`;
         a.click();
         window.URL.revokeObjectURL(url);
         setSuccess(`Successfully exported ${exportData.type} data`);
       } else {
-        throw new Error("Failed to export data");
+        throw new Error("Invalid export response");
       }
     } catch (error) {
       console.error("Error exporting data:", error);
@@ -205,21 +213,28 @@ export default function DataImportExport() {
 
   const downloadTemplate = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:3001/api/data/template?type=${selectedDataType}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
+      // Use the centralized API service instead of hardcoded URL
+      const response = await api.get<any>(
+        `${API_ENDPOINTS.DATA.TEMPLATE}?type=${selectedDataType}`,
+        token
+      );
+
+      // Handle blob response for file download
+      if (response && response.blob) {
+        const url = window.URL.createObjectURL(response.blob);
+        const a = document.createElement("a");
         a.href = url;
         a.download = `${selectedDataType}-template.csv`;
         a.click();
         window.URL.revokeObjectURL(url);
+      } else {
+        throw new Error("Invalid template response");
       }
     } catch (error) {
       console.error("Error downloading template:", error);
@@ -228,13 +243,13 @@ export default function DataImportExport() {
   };
 
   const getDataTypeIcon = (type: string) => {
-    const dataType = dataTypes.find(dt => dt.value === type);
+    const dataType = dataTypes.find((dt) => dt.value === type);
     if (!dataType) return Database;
     return dataType.icon;
   };
 
   const getDataTypeLabel = (type: string) => {
-    const dataType = dataTypes.find(dt => dt.value === type);
+    const dataType = dataTypes.find((dt) => dt.value === type);
     return dataType?.label || type;
   };
 
@@ -242,7 +257,9 @@ export default function DataImportExport() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Data Import & Export</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Data Import & Export
+        </h1>
         <p className="mt-1 text-sm text-gray-500">
           Import data from external sources and export your business data
         </p>
@@ -329,8 +346,12 @@ export default function DataImportExport() {
                   <div className="flex items-center space-x-3">
                     <Icon className="h-6 w-6 text-gray-600" />
                     <div>
-                      <h3 className="font-medium text-gray-900">{dataType.label}</h3>
-                      <p className="text-sm text-gray-500">{dataType.description}</p>
+                      <h3 className="font-medium text-gray-900">
+                        {dataType.label}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {dataType.description}
+                      </p>
                     </div>
                   </div>
                   {selectedDataType === dataType.value && (
@@ -377,7 +398,8 @@ export default function DataImportExport() {
                   </Button>
                 </div>
                 <p className="mt-1 text-sm text-gray-500">
-                  Supported formats: CSV, Excel (.xlsx, .xls). Max file size: 10MB
+                  Supported formats: CSV, Excel (.xlsx, .xls). Max file size:
+                  10MB
                 </p>
               </div>
 
@@ -391,12 +413,18 @@ export default function DataImportExport() {
               {importData && (
                 <div className="border rounded-lg p-4 bg-gray-50">
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-medium text-gray-900">File Validation Results</h4>
-                    <Badge variant={importData.invalidRows === 0 ? "default" : "destructive"}>
+                    <h4 className="font-medium text-gray-900">
+                      File Validation Results
+                    </h4>
+                    <Badge
+                      variant={
+                        importData.invalidRows === 0 ? "default" : "destructive"
+                      }
+                    >
                       {importData.invalidRows === 0 ? "Valid" : "Has Errors"}
                     </Badge>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div>
                       <span className="text-sm text-gray-600">File:</span>
@@ -408,20 +436,30 @@ export default function DataImportExport() {
                     </div>
                     <div>
                       <span className="text-sm text-gray-600">Valid Rows:</span>
-                      <p className="font-medium text-green-600">{importData.validRows}</p>
+                      <p className="font-medium text-green-600">
+                        {importData.validRows}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-sm text-gray-600">Invalid Rows:</span>
-                      <p className="font-medium text-red-600">{importData.invalidRows}</p>
+                      <span className="text-sm text-gray-600">
+                        Invalid Rows:
+                      </span>
+                      <p className="font-medium text-red-600">
+                        {importData.invalidRows}
+                      </p>
                     </div>
                   </div>
 
                   {importData.errors.length > 0 && (
                     <div className="mb-4">
-                      <h5 className="font-medium text-gray-900 mb-2">Validation Errors:</h5>
+                      <h5 className="font-medium text-gray-900 mb-2">
+                        Validation Errors:
+                      </h5>
                       <div className="space-y-1">
                         {importData.errors.slice(0, 5).map((error, index) => (
-                          <p key={index} className="text-sm text-red-600">• {error}</p>
+                          <p key={index} className="text-sm text-red-600">
+                            • {error}
+                          </p>
                         ))}
                         {importData.errors.length > 5 && (
                           <p className="text-sm text-gray-500">
@@ -434,28 +472,40 @@ export default function DataImportExport() {
 
                   {importData.preview.length > 0 && (
                     <div>
-                      <h5 className="font-medium text-gray-900 mb-2">Data Preview:</h5>
+                      <h5 className="font-medium text-gray-900 mb-2">
+                        Data Preview:
+                      </h5>
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-100">
                             <tr>
                               {Object.keys(importData.preview[0]).map((key) => (
-                                <th key={key} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th
+                                  key={key}
+                                  className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
                                   {key}
                                 </th>
                               ))}
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {importData.preview.slice(0, 5).map((row, index) => (
-                              <tr key={index}>
-                                {Object.values(row).map((value, valueIndex) => (
-                                  <td key={valueIndex} className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                    {String(value)}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
+                            {importData.preview
+                              .slice(0, 5)
+                              .map((row, index) => (
+                                <tr key={index}>
+                                  {Object.values(row).map(
+                                    (value, valueIndex) => (
+                                      <td
+                                        key={valueIndex}
+                                        className="px-3 py-2 whitespace-nowrap text-sm text-gray-900"
+                                      >
+                                        {String(value)}
+                                      </td>
+                                    )
+                                  )}
+                                </tr>
+                              ))}
                           </tbody>
                         </table>
                       </div>
@@ -498,7 +548,12 @@ export default function DataImportExport() {
                   </label>
                   <select
                     value={exportData.format}
-                    onChange={(e) => setExportData({ ...exportData, format: e.target.value as "csv" | "excel" })}
+                    onChange={(e) =>
+                      setExportData({
+                        ...exportData,
+                        format: e.target.value as "csv" | "excel",
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="csv">CSV</option>
@@ -514,19 +569,29 @@ export default function DataImportExport() {
                     <input
                       type="date"
                       value={exportData.dateRange.start}
-                      onChange={(e) => setExportData({
-                        ...exportData,
-                        dateRange: { ...exportData.dateRange, start: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setExportData({
+                          ...exportData,
+                          dateRange: {
+                            ...exportData.dateRange,
+                            start: e.target.value,
+                          },
+                        })
+                      }
                       className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <input
                       type="date"
                       value={exportData.dateRange.end}
-                      onChange={(e) => setExportData({
-                        ...exportData,
-                        dateRange: { ...exportData.dateRange, end: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setExportData({
+                          ...exportData,
+                          dateRange: {
+                            ...exportData.dateRange,
+                            end: e.target.value,
+                          },
+                        })
+                      }
                       className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -534,10 +599,7 @@ export default function DataImportExport() {
               </div>
 
               <div className="flex justify-end">
-                <Button
-                  onClick={handleExport}
-                  disabled={isExporting}
-                >
+                <Button onClick={handleExport} disabled={isExporting}>
                   {isExporting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -574,7 +636,9 @@ export default function DataImportExport() {
               </ul>
             </div>
             <div>
-              <h4 className="font-medium text-gray-900 mb-2">Export Features:</h4>
+              <h4 className="font-medium text-gray-900 mb-2">
+                Export Features:
+              </h4>
               <ul className="text-sm text-gray-600 space-y-1">
                 <li>• Choose between CSV and Excel formats</li>
                 <li>• Filter by date ranges</li>

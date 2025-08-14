@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Storage Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        .result { margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Token Storage Test</h1>
+
+    <div class="test-section">
+        <h3>1. Test Token Storage</h3>
+        <button onclick="testTokenStorage()">Test Token Storage</button>
+        <div id="storage-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test Token Retrieval</h3>
+        <button onclick="testTokenRetrieval()">Test Token Retrieval</button>
+        <div id="retrieval-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test API Service</h3>
+        <button onclick="testApiService()">Test API Service</button>
+        <div id="api-result" class="result"></div>
+    </div>
+
+    <script>
+        // Simulate the API service
+        const API_CONFIG = {
+            BASE_URL: 'http://localhost:3001/api'
+        };
+
+        const API_ENDPOINTS = {
+            AUTH: {
+                PROFILE: '/auth/profile'
+            }
+        };
+
+        class ApiService {
+            static async get(endpoint, token) {
+                const url = `${API_CONFIG.BASE_URL}${endpoint}`;
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `Bearer ${token}` })
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                return response.json();
+            }
+        }
+
+        function testTokenStorage() {
+            const resultDiv = document.getElementById('storage-result');
+            
+            try {
+                // Test storing tokens
+                const testTokens = {
+                    accessToken: 'test-access-token-123',
+                    refreshToken: 'test-refresh-token-456'
+                };
+                
+                localStorage.setItem('auth_tokens', JSON.stringify(testTokens));
+                localStorage.setItem('token', testTokens.accessToken);
+                
+                resultDiv.innerHTML = '<span style="color: green;">✅ Tokens stored successfully</span>';
+                resultDiv.className = 'result success';
+                
+                console.log('Stored tokens:', {
+                    auth_tokens: localStorage.getItem('auth_tokens'),
+                    token: localStorage.getItem('token')
+                });
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color: red;">❌ Error: ${error.message}</span>`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        function testTokenRetrieval() {
+            const resultDiv = document.getElementById('retrieval-result');
+            
+            try {
+                // Test retrieving tokens
+                const storedTokens = localStorage.getItem('auth_tokens');
+                const legacyToken = localStorage.getItem('token');
+                
+                let accessToken = null;
+                
+                if (storedTokens) {
+                    try {
+                        const parsedTokens = JSON.parse(storedTokens);
+                        if (parsedTokens.accessToken && parsedTokens.accessToken !== 'null' && parsedTokens.accessToken !== 'undefined') {
+                            accessToken = parsedTokens.accessToken;
+                        }
+                    } catch (error) {
+                        console.error('Error parsing stored tokens:', error);
+                    }
+                }
+                
+                if (!accessToken && legacyToken && legacyToken !== 'null' && legacyToken !== 'undefined') {
+                    accessToken = legacyToken;
+                }
+                
+                if (accessToken) {
+                    resultDiv.innerHTML = `<span style="color: green;">✅ Token retrieved: ${accessToken}</span>`;
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.innerHTML = '<span style="color: red;">❌ No valid token found</span>';
+                    resultDiv.className = 'result error';
+                }
+                
+                console.log('Retrieved token:', accessToken);
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color: red;">❌ Error: ${error.message}</span>`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testApiService() {
+            const resultDiv = document.getElementById('api-result');
+            
+            try {
+                // Get token first
+                const storedTokens = localStorage.getItem('auth_tokens');
+                let accessToken = null;
+                
+                if (storedTokens) {
+                    try {
+                        const parsedTokens = JSON.parse(storedTokens);
+                        if (parsedTokens.accessToken && parsedTokens.accessToken !== 'null' && parsedTokens.accessToken !== 'undefined') {
+                            accessToken = parsedTokens.accessToken;
+                        }
+                    } catch (error) {
+                        console.error('Error parsing stored tokens:', error);
+                    }
+                }
+                
+                if (!accessToken) {
+                    const legacyToken = localStorage.getItem('token');
+                    if (legacyToken && legacyToken !== 'null' && legacyToken !== 'undefined') {
+                        accessToken = legacyToken;
+                    }
+                }
+                
+                if (!accessToken) {
+                    resultDiv.innerHTML = '<span style="color: orange;">⚠️ No token available for API test</span>';
+                    resultDiv.className = 'result';
+                    return;
+                }
+                
+                // Test API call
+                const response = await ApiService.get(API_ENDPOINTS.AUTH.PROFILE, accessToken);
+                
+                resultDiv.innerHTML = '<span style="color: green;">✅ API call successful</span>';
+                resultDiv.className = 'result success';
+                
+                console.log('API response:', response);
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color: red;">❌ API Error: ${error.message}</span>`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            console.log('Token Storage Test Page Loaded');
+            console.log('Current localStorage:', {
+                auth_tokens: localStorage.getItem('auth_tokens'),
+                token: localStorage.getItem('token')
+            });
+        };
+    </script>
+</body>
+</html>

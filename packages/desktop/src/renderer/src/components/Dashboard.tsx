@@ -21,6 +21,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
 
 interface FinancialMetrics {
   totalAssets: number;
@@ -45,7 +46,7 @@ interface RecentTransaction {
 }
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, getAccessToken } = useAuth();
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<
     RecentTransaction[]
@@ -60,90 +61,86 @@ const Dashboard: React.FC = () => {
     try {
       setLoading(true);
 
+      const token = getAccessToken();
+      if (!token) {
+        console.error("No authentication token available");
+        return;
+      }
+
       // Fetch financial metrics from Chart of Accounts
-      const accountsResponse = await fetch("/api/chart-of-accounts", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
+      const accountsData = await api.get<any>(
+        API_ENDPOINTS.CHART_OF_ACCOUNTS.LIST,
+        token
+      );
+      const accounts = accountsData?.data || [];
+
+      // Calculate financial metrics
+      const calculatedMetrics: FinancialMetrics = {
+        totalAssets: 0,
+        totalLiabilities: 0,
+        totalEquity: 0,
+        totalRevenue: 0,
+        totalExpenses: 0,
+        netIncome: 0,
+        cashBalance: 0,
+        accountsReceivable: 0,
+        accountsPayable: 0,
+      };
+
+      accounts.forEach((account: any) => {
+        const balance = parseFloat(account.balance);
+
+        switch (account.type) {
+          case "ASSET":
+            calculatedMetrics.totalAssets += balance;
+            if (account.code === "1100")
+              calculatedMetrics.cashBalance = balance;
+            if (account.code === "1200")
+              calculatedMetrics.accountsReceivable = balance;
+            break;
+          case "LIABILITY":
+            calculatedMetrics.totalLiabilities += balance;
+            if (account.code === "3100")
+              calculatedMetrics.accountsPayable = balance;
+            break;
+          case "EQUITY":
+            calculatedMetrics.totalEquity += balance;
+            break;
+          case "REVENUE":
+            calculatedMetrics.totalRevenue += balance;
+            break;
+          case "EXPENSE":
+            calculatedMetrics.totalExpenses += balance;
+            break;
+        }
       });
 
-      if (accountsResponse.ok) {
-        const accountsData = await accountsResponse.json();
-        const accounts = accountsData.data;
-
-        // Calculate financial metrics
-        const calculatedMetrics: FinancialMetrics = {
-          totalAssets: 0,
-          totalLiabilities: 0,
-          totalEquity: 0,
-          totalRevenue: 0,
-          totalExpenses: 0,
-          netIncome: 0,
-          cashBalance: 0,
-          accountsReceivable: 0,
-          accountsPayable: 0,
-        };
-
-        accounts.forEach((account: any) => {
-          const balance = parseFloat(account.balance);
-
-          switch (account.type) {
-            case "ASSET":
-              calculatedMetrics.totalAssets += balance;
-              if (account.code === "1100")
-                calculatedMetrics.cashBalance = balance;
-              if (account.code === "1200")
-                calculatedMetrics.accountsReceivable = balance;
-              break;
-            case "LIABILITY":
-              calculatedMetrics.totalLiabilities += balance;
-              if (account.code === "3100")
-                calculatedMetrics.accountsPayable = balance;
-              break;
-            case "EQUITY":
-              calculatedMetrics.totalEquity += balance;
-              break;
-            case "REVENUE":
-              calculatedMetrics.totalRevenue += balance;
-              break;
-            case "EXPENSE":
-              calculatedMetrics.totalExpenses += balance;
-              break;
-          }
-        });
-
-        calculatedMetrics.netIncome =
-          calculatedMetrics.totalRevenue - calculatedMetrics.totalExpenses;
-        setMetrics(calculatedMetrics);
-      }
+      calculatedMetrics.netIncome =
+        calculatedMetrics.totalRevenue - calculatedMetrics.totalExpenses;
+      setMetrics(calculatedMetrics);
 
       // Fetch recent journal entries
-      const journalResponse = await fetch("/api/journal-entries?limit=5", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-      });
-
-      if (journalResponse.ok) {
-        const journalData = await journalResponse.json();
-        const transactions: RecentTransaction[] = journalData.data.entries.map(
-          (entry: any) => ({
-            id: entry.id,
-            type: "journal_entry" as const,
-            reference: entry.number,
-            description: entry.description,
-            amount:
-              entry.lines.reduce(
-                (sum: number, line: any) =>
-                  sum + parseFloat(line.debit) + parseFloat(line.credit),
-                0
-              ) / 2,
-            date: entry.date,
-            status: entry.status,
-          })
-        );
-        setRecentTransactions(transactions);
-      }
+      const journalData = await api.get<any>(
+        `${API_ENDPOINTS.JOURNAL_ENTRIES.LIST}?limit=5`,
+        token
+      );
+      const transactions: RecentTransaction[] = (
+        journalData?.data?.entries || []
+      ).map((entry: any) => ({
+        id: entry.id,
+        type: "journal_entry" as const,
+        reference: entry.number,
+        description: entry.description,
+        amount:
+          entry.lines.reduce(
+            (sum: number, line: any) =>
+              sum + parseFloat(line.debit) + parseFloat(line.credit),
+            0
+          ) / 2,
+        date: entry.date,
+        status: entry.status,
+      }));
+      setRecentTransactions(transactions);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {

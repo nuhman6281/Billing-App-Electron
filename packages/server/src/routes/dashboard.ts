@@ -85,75 +85,97 @@ router.get(
 );
 
 // Get recent activity
-router.get("/activity", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user?.userId;
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+router.get(
+  "/activity",
+  authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.userId;
+      const companyId = req.user?.companyId;
+
+      if (!userId) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      if (!companyId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Company ID is required" });
+      }
+
+      // Get recent activities from different entities
+      const recentActivities: Array<{
+        id: string;
+        type: string;
+        action: string;
+        description: string;
+        amount: any;
+        date: Date;
+        status: any;
+      }> = [];
+
+      // Get recent invoices
+      const recentInvoices = await invoiceService.getRecent(5, companyId);
+      recentInvoices.forEach((invoice) => {
+        recentActivities.push({
+          id: invoice.id,
+          type: "invoice",
+          action: "created",
+          description: `Invoice ${invoice.number} created for ${invoice.customer?.name || "Customer"}`,
+          amount: invoice.total,
+          date: invoice.createdAt,
+          status: invoice.status,
+        });
+      });
+
+      // Get recent bills
+      const recentBills = await billService.getRecent(5, companyId);
+      recentBills.forEach((bill) => {
+        recentActivities.push({
+          id: bill.id,
+          type: "bill",
+          action: "created",
+          description: `Bill ${bill.number} received from ${bill.vendor?.name || "Vendor"}`,
+          amount: bill.total,
+          date: bill.createdAt,
+          status: bill.status,
+        });
+      });
+
+      // Get recent journal entries
+      const recentEntries = await journalEntryService.getRecent(5, companyId);
+      recentEntries.forEach((entry) => {
+        recentActivities.push({
+          id: entry.id,
+          type: "journal_entry",
+          action: "created",
+          description: `Journal entry ${entry.number} posted`,
+          amount: 0, // Journal entries don't have a single amount
+          date: entry.createdAt,
+          status: entry.status,
+        });
+      });
+
+      // Sort by date (most recent first)
+      recentActivities.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+
+      res.json({
+        success: true,
+        data: recentActivities.slice(0, 10), // Return top 10 most recent
+      });
+    } catch (error) {
+      console.error("Dashboard activity error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal Server Error",
+        code: "INTERNAL_ERROR",
+      });
     }
-
-    // Get recent activities from different entities
-    const recentActivities = [];
-
-    // Get recent invoices
-    const recentInvoices = await invoiceService.getRecent(5, companyId);
-    recentInvoices.forEach((invoice) => {
-      recentActivities.push({
-        id: invoice.id,
-        type: "invoice",
-        action: "created",
-        description: `Invoice ${invoice.number} created for ${invoice.customerName || "Customer"}`,
-        amount: invoice.total,
-        date: invoice.createdAt,
-        status: invoice.status,
-      });
-    });
-
-    // Get recent bills
-    const recentBills = await billService.getRecent(5, companyId);
-    recentBills.forEach((bill) => {
-      recentActivities.push({
-        id: bill.id,
-        type: "bill",
-        action: "created",
-        description: `Bill ${bill.number} received from ${bill.vendorName || "Vendor"}`,
-        amount: bill.total,
-        date: bill.createdAt,
-        status: bill.status,
-      });
-    });
-
-    // Get recent journal entries
-    const recentEntries = await journalEntryService.getRecent(5, companyId);
-    recentEntries.forEach((entry) => {
-      recentActivities.push({
-        id: entry.id,
-        type: "journal_entry",
-        action: "created",
-        description: `Journal entry ${entry.number} posted`,
-        amount: entry.totalAmount || 0,
-        date: entry.createdAt,
-        status: entry.status,
-      });
-    });
-
-    // Sort by date (most recent first)
-    recentActivities.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    res.json({
-      success: true,
-      data: recentActivities.slice(0, 10), // Return top 10 most recent
-    });
-  } catch (error) {
-    console.error("Dashboard activity error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      code: "INTERNAL_ERROR",
-    });
   }
-});
+);
 
 export default router;

@@ -17,6 +17,8 @@ import {
   Activity,
   AlertCircle,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
 
 interface FinancialMetrics {
   totalRevenue: string;
@@ -51,6 +53,7 @@ interface TimeSeriesData {
 }
 
 export default function Reports() {
+  const { getAccessToken } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState("30");
   const [selectedReport, setSelectedReport] = useState("overview");
   const [metrics, setMetrics] = useState<FinancialMetrics>({
@@ -85,46 +88,38 @@ export default function Reports() {
   const fetchReportData = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem("token");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
 
       // Fetch financial metrics
-      const metricsResponse = await fetch(
-        `http://localhost:3001/api/reports/metrics?period=${selectedPeriod}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      const metricsData = await api.get<any>(
+        `${API_ENDPOINTS.REPORTS.METRICS}?period=${selectedPeriod}`,
+        token
       );
-
-      if (metricsResponse.ok) {
-        const metricsData = await metricsResponse.json();
-        setMetrics(metricsData);
+      if (metricsData.success && metricsData.data) {
+        setMetrics(metricsData.data);
       }
 
       // Fetch chart data
-      const chartResponse = await fetch(
-        `http://localhost:3001/api/reports/charts?period=${selectedPeriod}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      const chartData = await api.get<any>(
+        `${API_ENDPOINTS.REPORTS.CHARTS}?period=${selectedPeriod}`,
+        token
       );
-
-      if (chartResponse.ok) {
-        const chartData = await chartResponse.json();
-        setRevenueChartData(chartData.revenue);
-        setExpenseChartData(chartData.expenses);
+      if (chartData.success && chartData.data) {
+        setRevenueChartData(chartData.data.revenue);
+        setExpenseChartData(chartData.data.expenses);
       }
 
       // Fetch cash flow data
-      const cashFlowResponse = await fetch(
-        `http://localhost:3001/api/reports/cash-flow?period=${selectedPeriod}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      const cashFlowData = await api.get<any>(
+        `${API_ENDPOINTS.REPORTS.CASH_FLOW}?period=${selectedPeriod}`,
+        token
       );
-
-      if (cashFlowResponse.ok) {
-        const cashFlowData = await cashFlowResponse.json();
-        setCashFlowData(cashFlowData);
+      if (cashFlowData.success && cashFlowData.data) {
+        setCashFlowData(cashFlowData.data);
       }
     } catch (error) {
       console.error("Error fetching report data:", error);
@@ -136,22 +131,28 @@ export default function Reports() {
 
   const exportReport = async (format: "pdf" | "csv" | "excel") => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `http://localhost:3001/api/reports/export?format=${format}&period=${selectedPeriod}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
+
+      // Use the centralized API service instead of hardcoded URL
+      const response = await api.get<any>(
+        `${API_ENDPOINTS.REPORTS.EXPORT}?format=${format}&period=${selectedPeriod}`,
+        token
       );
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+      // Handle blob response for file download
+      if (response && response.blob) {
+        const url = window.URL.createObjectURL(response.blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = `financial-report-${selectedPeriod}days.${format}`;
         a.click();
         window.URL.revokeObjectURL(url);
+      } else {
+        throw new Error("Invalid export response");
       }
     } catch (error) {
       console.error("Error exporting report:", error);
@@ -484,7 +485,7 @@ export default function Reports() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {parseFloat(metrics.profitMargin) < 15 && (
+            {parseFloat(metrics.profitMargin.toString()) < 15 && (
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <div className="flex items-center">
                   <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />

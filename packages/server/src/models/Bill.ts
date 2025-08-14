@@ -647,10 +647,14 @@ export class BillService {
       select: {
         id: true,
         number: true,
-        vendorName: true,
         total: true,
         status: true,
         createdAt: true,
+        vendor: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
   }

@@ -654,10 +654,14 @@ export class InvoiceService {
       select: {
         id: true,
         number: true,
-        customerName: true,
         total: true,
         status: true,
         createdAt: true,
+        customer: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
   }

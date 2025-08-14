@@ -817,7 +817,6 @@ export class JournalEntryService {
         id: true,
         number: true,
         reference: true,
-        totalAmount: true,
         status: true,
         createdAt: true,
       },

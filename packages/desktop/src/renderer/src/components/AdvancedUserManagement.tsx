@@ -2,14 +2,14 @@ import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { 
-  Users, 
-  Shield, 
-  UserPlus, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Lock, 
+import {
+  Users,
+  Shield,
+  UserPlus,
+  Edit,
+  Trash2,
+  Eye,
+  Lock,
   Unlock,
   CheckCircle,
   X,
@@ -17,8 +17,10 @@ import {
   Settings,
   Key,
   Building2,
-  UserCheck
+  UserCheck,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
 
 interface User {
   id: string;
@@ -62,85 +64,201 @@ const systemRoles = [
   {
     name: "SUPER_ADMIN",
     description: "Full system access and control",
-    permissions: ["*"]
+    permissions: ["*"],
   },
   {
     name: "ADMIN",
     description: "Company-level administration",
-    permissions: ["users.manage", "roles.manage", "reports.view", "settings.manage"]
+    permissions: [
+      "users.manage",
+      "roles.manage",
+      "reports.view",
+      "settings.manage",
+    ],
   },
   {
     name: "MANAGER",
     description: "Department and team management",
-    permissions: ["users.view", "reports.view", "invoices.manage", "bills.manage"]
+    permissions: [
+      "users.view",
+      "reports.view",
+      "invoices.manage",
+      "bills.manage",
+    ],
   },
   {
     name: "ACCOUNTANT",
     description: "Financial operations and reporting",
-    permissions: ["invoices.manage", "bills.manage", "payments.manage", "reports.view", "chart-of-accounts.manage"]
+    permissions: [
+      "invoices.manage",
+      "bills.manage",
+      "payments.manage",
+      "reports.view",
+      "chart-of-accounts.manage",
+    ],
   },
   {
     name: "USER",
     description: "Basic user access",
-    permissions: ["invoices.view", "bills.view", "customers.view", "vendors.view"]
-  }
+    permissions: [
+      "invoices.view",
+      "bills.view",
+      "customers.view",
+      "vendors.view",
+    ],
+  },
 ];
 
 const permissionCategories = [
   {
     name: "User Management",
     permissions: [
-      { id: "users.view", name: "View Users", description: "View user list and details" },
-      { id: "users.create", name: "Create Users", description: "Create new users" },
-      { id: "users.edit", name: "Edit Users", description: "Modify user information" },
-      { id: "users.delete", name: "Delete Users", description: "Remove users from system" },
-      { id: "users.activate", name: "Activate Users", description: "Activate suspended users" }
-    ]
+      {
+        id: "users.view",
+        name: "View Users",
+        description: "View user list and details",
+      },
+      {
+        id: "users.create",
+        name: "Create Users",
+        description: "Create new users",
+      },
+      {
+        id: "users.edit",
+        name: "Edit Users",
+        description: "Modify user information",
+      },
+      {
+        id: "users.delete",
+        name: "Delete Users",
+        description: "Remove users from system",
+      },
+      {
+        id: "users.activate",
+        name: "Activate Users",
+        description: "Activate suspended users",
+      },
+    ],
   },
   {
     name: "Role Management",
     permissions: [
-      { id: "roles.view", name: "View Roles", description: "View role definitions" },
-      { id: "roles.create", name: "Create Roles", description: "Create new roles" },
-      { id: "roles.edit", name: "Edit Roles", description: "Modify role permissions" },
-      { id: "roles.delete", name: "Delete Roles", description: "Remove roles" }
-    ]
+      {
+        id: "roles.view",
+        name: "View Roles",
+        description: "View role definitions",
+      },
+      {
+        id: "roles.create",
+        name: "Create Roles",
+        description: "Create new roles",
+      },
+      {
+        id: "roles.edit",
+        name: "Edit Roles",
+        description: "Modify role permissions",
+      },
+      { id: "roles.delete", name: "Delete Roles", description: "Remove roles" },
+    ],
   },
   {
     name: "Financial Operations",
     permissions: [
-      { id: "invoices.view", name: "View Invoices", description: "View invoice list and details" },
-      { id: "invoices.create", name: "Create Invoices", description: "Create new invoices" },
-      { id: "invoices.edit", name: "Edit Invoices", description: "Modify invoice information" },
-      { id: "invoices.delete", name: "Delete Invoices", description: "Remove invoices" },
-      { id: "bills.view", name: "View Bills", description: "View bill list and details" },
-      { id: "bills.create", name: "Create Bills", description: "Create new bills" },
-      { id: "bills.edit", name: "Edit Bills", description: "Modify bill information" },
+      {
+        id: "invoices.view",
+        name: "View Invoices",
+        description: "View invoice list and details",
+      },
+      {
+        id: "invoices.create",
+        name: "Create Invoices",
+        description: "Create new invoices",
+      },
+      {
+        id: "invoices.edit",
+        name: "Edit Invoices",
+        description: "Modify invoice information",
+      },
+      {
+        id: "invoices.delete",
+        name: "Delete Invoices",
+        description: "Remove invoices",
+      },
+      {
+        id: "bills.view",
+        name: "View Bills",
+        description: "View bill list and details",
+      },
+      {
+        id: "bills.create",
+        name: "Create Bills",
+        description: "Create new bills",
+      },
+      {
+        id: "bills.edit",
+        name: "Edit Bills",
+        description: "Modify bill information",
+      },
       { id: "bills.delete", name: "Delete Bills", description: "Remove bills" },
-      { id: "payments.view", name: "View Payments", description: "View payment information" },
-      { id: "payments.manage", name: "Manage Payments", description: "Create and manage payments" }
-    ]
+      {
+        id: "payments.view",
+        name: "View Payments",
+        description: "View payment information",
+      },
+      {
+        id: "payments.manage",
+        name: "Manage Payments",
+        description: "Create and manage payments",
+      },
+    ],
   },
   {
     name: "Reporting & Analytics",
     permissions: [
-      { id: "reports.view", name: "View Reports", description: "Access to financial reports" },
-      { id: "reports.export", name: "Export Reports", description: "Export reports to various formats" },
-      { id: "analytics.view", name: "View Analytics", description: "Access to business analytics" }
-    ]
+      {
+        id: "reports.view",
+        name: "View Reports",
+        description: "Access to financial reports",
+      },
+      {
+        id: "reports.export",
+        name: "Export Reports",
+        description: "Export reports to various formats",
+      },
+      {
+        id: "analytics.view",
+        name: "View Analytics",
+        description: "Access to business analytics",
+      },
+    ],
   },
   {
     name: "System Settings",
     permissions: [
-      { id: "settings.view", name: "View Settings", description: "View system configuration" },
-      { id: "settings.manage", name: "Manage Settings", description: "Modify system settings" },
-      { id: "companies.manage", name: "Manage Companies", description: "Manage company information" }
-    ]
-  }
+      {
+        id: "settings.view",
+        name: "View Settings",
+        description: "View system configuration",
+      },
+      {
+        id: "settings.manage",
+        name: "Manage Settings",
+        description: "Modify system settings",
+      },
+      {
+        id: "companies.manage",
+        name: "Manage Companies",
+        description: "Manage company information",
+      },
+    ],
+  },
 ];
 
 export default function AdvancedUserManagement() {
-  const [activeTab, setActiveTab] = useState<"users" | "roles" | "permissions" | "companies">("users");
+  const { getAccessToken } = useAuth();
+  const [activeTab, setActiveTab] = useState<
+    "users" | "roles" | "permissions" | "companies"
+  >("users");
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -149,7 +267,7 @@ export default function AdvancedUserManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   // Form states
   const [showUserModal, setShowUserModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
@@ -160,12 +278,12 @@ export default function AdvancedUserManagement() {
     role: "",
     companyId: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
   });
   const [roleForm, setRoleForm] = useState({
     name: "",
     description: "",
-    permissions: [] as string[]
+    permissions: [] as string[],
   });
 
   useEffect(() => {
@@ -175,35 +293,35 @@ export default function AdvancedUserManagement() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem("token");
-      
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
+
       // Fetch users
-      const usersResponse = await fetch("http://localhost:3001/api/users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        setUsers(usersData);
+      const usersResponse = await api.get<any>(API_ENDPOINTS.USERS.LIST, token);
+      if (usersResponse?.data) {
+        setUsers(usersResponse.data);
       }
 
       // Fetch roles
-      const rolesResponse = await fetch("http://localhost:3001/api/roles", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (rolesResponse.ok) {
-        const rolesData = await rolesResponse.json();
-        setRoles(rolesData);
+      const rolesResponse = await api.get<any>(
+        API_ENDPOINTS.USERS.ROLES,
+        token
+      );
+      if (rolesResponse?.data) {
+        setRoles(rolesResponse.data);
       }
 
       // Fetch companies
-      const companiesResponse = await fetch("http://localhost:3001/api/companies", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (companiesResponse.ok) {
-        const companiesData = await companiesResponse.json();
-        setCompanies(companiesData);
+      const companiesResponse = await api.get<any>(
+        API_ENDPOINTS.COMPANIES.LIST,
+        token
+      );
+      if (companiesResponse?.data) {
+        setCompanies(companiesResponse.data);
       }
-
     } catch (error) {
       console.error("Error fetching data:", error);
       setError("Failed to load data");
@@ -219,31 +337,28 @@ export default function AdvancedUserManagement() {
         return;
       }
 
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
+      await api.post<any>(
+        API_ENDPOINTS.USERS.LIST,
+        {
           username: userForm.username,
           email: userForm.email,
           displayName: userForm.displayName,
           role: userForm.role,
           companyId: userForm.companyId,
-          password: userForm.password
-        }),
-      });
+          password: userForm.password,
+        },
+        token
+      );
 
-      if (response.ok) {
-        setSuccess("User created successfully");
-        setShowUserModal(false);
-        resetUserForm();
-        fetchData();
-      } else {
-        throw new Error("Failed to create user");
-      }
+      setSuccess("User created successfully");
+      setShowUserModal(false);
+      resetUserForm();
+      fetchData();
     } catch (error) {
       console.error("Error creating user:", error);
       setError("Failed to create user");
@@ -252,28 +367,25 @@ export default function AdvancedUserManagement() {
 
   const handleCreateRole = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/api/roles", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
+      await api.post<any>(
+        API_ENDPOINTS.USERS.ROLES,
+        {
           name: roleForm.name,
           description: roleForm.description,
-          permissions: roleForm.permissions
-        }),
-      });
+          permissions: roleForm.permissions,
+        },
+        token
+      );
 
-      if (response.ok) {
-        setSuccess("Role created successfully");
-        setShowRoleModal(false);
-        resetRoleForm();
-        fetchData();
-      } else {
-        throw new Error("Failed to create role");
-      }
+      setSuccess("Role created successfully");
+      setShowRoleModal(false);
+      resetRoleForm();
+      fetchData();
     } catch (error) {
       console.error("Error creating role:", error);
       setError("Failed to create role");
@@ -282,22 +394,14 @@ export default function AdvancedUserManagement() {
 
   const handleUpdateUserStatus = async (userId: string, status: string) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:3001/api/users/${userId}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-
-      if (response.ok) {
-        setSuccess("User status updated successfully");
-        fetchData();
-      } else {
-        throw new Error("Failed to update user status");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
+      await api.patch<any>(`/users/${userId}/status`, { status }, token);
+      setSuccess("User status updated successfully");
+      fetchData();
     } catch (error) {
       console.error("Error updating user status:", error);
       setError("Failed to update user status");
@@ -308,18 +412,14 @@ export default function AdvancedUserManagement() {
     if (!confirm("Are you sure you want to delete this user?")) return;
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:3001/api/users/${userId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        setSuccess("User deleted successfully");
-        fetchData();
-      } else {
-        throw new Error("Failed to delete user");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
+      await api.delete<any>(`/users/${userId}`, token);
+      setSuccess("User deleted successfully");
+      fetchData();
     } catch (error) {
       console.error("Error deleting user:", error);
       setError("Failed to delete user");
@@ -334,7 +434,7 @@ export default function AdvancedUserManagement() {
       role: "",
       companyId: "",
       password: "",
-      confirmPassword: ""
+      confirmPassword: "",
     });
   };
 
@@ -342,17 +442,20 @@ export default function AdvancedUserManagement() {
     setRoleForm({
       name: "",
       description: "",
-      permissions: []
+      permissions: [],
     });
   };
 
   const getStatusBadge = (status: string) => {
-    const variants = {
+    const variants: Record<
+      string,
+      "default" | "secondary" | "destructive" | "outline"
+    > = {
       ACTIVE: "default",
       INACTIVE: "secondary",
-      SUSPENDED: "destructive"
+      SUSPENDED: "destructive",
     };
-    return <Badge variant={variants[status as keyof typeof variants] || "secondary"}>{status}</Badge>;
+    return <Badge variant={variants[status] || "secondary"}>{status}</Badge>;
   };
 
   const getRoleBadge = (role: string) => {
@@ -361,10 +464,12 @@ export default function AdvancedUserManagement() {
       ADMIN: "bg-purple-100 text-purple-800",
       MANAGER: "bg-blue-100 text-blue-800",
       ACCOUNTANT: "bg-green-100 text-green-800",
-      USER: "bg-gray-100 text-gray-800"
+      USER: "bg-gray-100 text-gray-800",
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[role as keyof typeof colors] || colors.USER}`}>
+      <span
+        className={`px-2 py-1 rounded-full text-xs font-medium ${colors[role as keyof typeof colors] || colors.USER}`}
+      >
         {role.replace("_", " ")}
       </span>
     );
@@ -383,7 +488,9 @@ export default function AdvancedUserManagement() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Advanced User Management</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Advanced User Management
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
             Manage users, roles, permissions, and access control
           </p>
@@ -438,7 +545,7 @@ export default function AdvancedUserManagement() {
             { id: "users", label: "Users", icon: Users },
             { id: "roles", label: "Roles", icon: Shield },
             { id: "permissions", label: "Permissions", icon: Key },
-            { id: "companies", label: "Companies", icon: Building2 }
+            { id: "companies", label: "Companies", icon: Building2 },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -514,13 +621,16 @@ export default function AdvancedUserManagement() {
                         {getRoleBadge(user.role)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {companies.find(c => c.id === user.companyId)?.name || "N/A"}
+                        {companies.find((c) => c.id === user.companyId)?.name ||
+                          "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(user.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}
+                        {user.lastLogin
+                          ? new Date(user.lastLogin).toLocaleDateString()
+                          : "Never"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
@@ -542,7 +652,9 @@ export default function AdvancedUserManagement() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleUpdateUserStatus(user.id, "SUSPENDED")}
+                              onClick={() =>
+                                handleUpdateUserStatus(user.id, "SUSPENDED")
+                              }
                             >
                               <Lock className="h-4 w-4" />
                             </Button>
@@ -550,7 +662,9 @@ export default function AdvancedUserManagement() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleUpdateUserStatus(user.id, "ACTIVE")}
+                              onClick={() =>
+                                handleUpdateUserStatus(user.id, "ACTIVE")
+                              }
                             >
                               <Unlock className="h-4 w-4" />
                             </Button>
@@ -586,11 +700,11 @@ export default function AdvancedUserManagement() {
                 <div key={role.id} className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-medium text-gray-900">{role.name}</h3>
-                    {role.isSystem && (
-                      <Badge variant="secondary">System</Badge>
-                    )}
+                    {role.isSystem && <Badge variant="secondary">System</Badge>}
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">{role.description}</p>
+                  <p className="text-sm text-gray-600 mb-3">
+                    {role.description}
+                  </p>
                   <div className="flex items-center justify-between text-sm text-gray-500">
                     <span>{role.userCount} users</span>
                     <span>{role.permissions.length} permissions</span>
@@ -601,7 +715,11 @@ export default function AdvancedUserManagement() {
                       Edit
                     </Button>
                     {!role.isSystem && (
-                      <Button variant="outline" size="sm" className="text-red-600">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600"
+                      >
                         <Trash2 className="h-4 w-4 mr-1" />
                         Delete
                       </Button>
@@ -624,20 +742,30 @@ export default function AdvancedUserManagement() {
             <div className="space-y-6">
               {permissionCategories.map((category) => (
                 <div key={category.name} className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3">{category.name}</h3>
+                  <h3 className="font-medium text-gray-900 mb-3">
+                    {category.name}
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {category.permissions.map((permission) => (
-                      <div key={permission.id} className="flex items-center space-x-3">
+                      <div
+                        key={permission.id}
+                        className="flex items-center space-x-3"
+                      >
                         <input
                           type="checkbox"
                           id={permission.id}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <div>
-                          <label htmlFor={permission.id} className="text-sm font-medium text-gray-900">
+                          <label
+                            htmlFor={permission.id}
+                            className="text-sm font-medium text-gray-900"
+                          >
                             {permission.name}
                           </label>
-                          <p className="text-xs text-gray-500">{permission.description}</p>
+                          <p className="text-xs text-gray-500">
+                            {permission.description}
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -664,8 +792,12 @@ export default function AdvancedUserManagement() {
                       <Building2 className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">{company.name}</h3>
-                      <p className="text-sm text-gray-500">Code: {company.code}</p>
+                      <h3 className="font-medium text-gray-900">
+                        {company.name}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        Code: {company.code}
+                      </p>
                     </div>
                   </div>
                   <div className="flex space-x-2">
@@ -690,40 +822,58 @@ export default function AdvancedUserManagement() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Add New User</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Add New User
+              </h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Username</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Username
+                  </label>
                   <input
                     type="text"
                     value={userForm.username}
-                    onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, username: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
                   <input
                     type="email"
                     value={userForm.email}
-                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, email: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Display Name</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Display Name
+                  </label>
                   <input
                     type="text"
                     value={userForm.displayName}
-                    onChange={(e) => setUserForm({ ...userForm, displayName: e.target.value })}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, displayName: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Role</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Role
+                  </label>
                   <select
                     value={userForm.role}
-                    onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, role: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select Role</option>
@@ -735,10 +885,14 @@ export default function AdvancedUserManagement() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Company</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Company
+                  </label>
                   <select
                     value={userForm.companyId}
-                    onChange={(e) => setUserForm({ ...userForm, companyId: e.target.value })}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, companyId: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select Company</option>
@@ -750,31 +904,43 @@ export default function AdvancedUserManagement() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Password</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Password
+                  </label>
                   <input
                     type="password"
                     value={userForm.password}
-                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, password: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Confirm Password
+                  </label>
                   <input
                     type="password"
                     value={userForm.confirmPassword}
-                    onChange={(e) => setUserForm({ ...userForm, confirmPassword: e.target.value })}
+                    onChange={(e) =>
+                      setUserForm({
+                        ...userForm,
+                        confirmPassword: e.target.value,
+                      })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
-                <Button variant="outline" onClick={() => setShowUserModal(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowUserModal(false)}
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleCreateUser}>
-                  Create User
-                </Button>
+                <Button onClick={handleCreateUser}>Create User</Button>
               </div>
             </div>
           </div>
@@ -786,54 +952,81 @@ export default function AdvancedUserManagement() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Role</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Add New Role
+              </h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Role Name</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Role Name
+                  </label>
                   <input
                     type="text"
                     value={roleForm.name}
-                    onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
+                    onChange={(e) =>
+                      setRoleForm({ ...roleForm, name: e.target.value })
+                    }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
                   <textarea
                     value={roleForm.description}
-                    onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
+                    onChange={(e) =>
+                      setRoleForm({ ...roleForm, description: e.target.value })
+                    }
                     rows={3}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Permissions</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Permissions
+                  </label>
                   <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
                     {permissionCategories.map((category) => (
                       <div key={category.name}>
-                        <h4 className="text-sm font-medium text-gray-700 mb-1">{category.name}</h4>
+                        <h4 className="text-sm font-medium text-gray-700 mb-1">
+                          {category.name}
+                        </h4>
                         {category.permissions.map((permission) => (
-                          <div key={permission.id} className="flex items-center space-x-2 ml-2">
+                          <div
+                            key={permission.id}
+                            className="flex items-center space-x-2 ml-2"
+                          >
                             <input
                               type="checkbox"
                               id={permission.id}
-                              checked={roleForm.permissions.includes(permission.id)}
+                              checked={roleForm.permissions.includes(
+                                permission.id
+                              )}
                               onChange={(e) => {
                                 if (e.target.checked) {
                                   setRoleForm({
                                     ...roleForm,
-                                    permissions: [...roleForm.permissions, permission.id]
+                                    permissions: [
+                                      ...roleForm.permissions,
+                                      permission.id,
+                                    ],
                                   });
                                 } else {
                                   setRoleForm({
                                     ...roleForm,
-                                    permissions: roleForm.permissions.filter(p => p !== permission.id)
+                                    permissions: roleForm.permissions.filter(
+                                      (p) => p !== permission.id
+                                    ),
                                   });
                                 }
                               }}
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
-                            <label htmlFor={permission.id} className="text-sm text-gray-700">
+                            <label
+                              htmlFor={permission.id}
+                              className="text-sm text-gray-700"
+                            >
                               {permission.name}
                             </label>
                           </div>
@@ -844,12 +1037,13 @@ export default function AdvancedUserManagement() {
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
-                <Button variant="outline" onClick={() => setShowRoleModal(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRoleModal(false)}
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleCreateRole}>
-                  Create Role
-                </Button>
+                <Button onClick={handleCreateRole}>Create Role</Button>
               </div>
             </div>
           </div>

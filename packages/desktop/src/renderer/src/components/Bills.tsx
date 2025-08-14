@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
 
 interface BillItem {
   id: string;
@@ -62,7 +63,7 @@ interface BillStats {
 }
 
 const Bills: React.FC = () => {
-  const { user } = useAuth();
+  const { getAccessToken } = useAuth();
   const [bills, setBills] = useState<Bill[]>([]);
   const [stats, setStats] = useState<BillStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +78,7 @@ const Bills: React.FC = () => {
     vendorId: "",
     date: "",
     dueDate: "",
-    status: "DRAFT" as const,
+    status: "DRAFT" as "DRAFT" | "RECEIVED" | "PAID" | "OVERDUE" | "VOIDED",
     subtotal: "",
     taxAmount: "",
     discountAmount: "",
@@ -104,19 +105,13 @@ const Bills: React.FC = () => {
   const fetchBills = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/bills", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch bills");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
-
-      const data = await response.json();
-      setBills(data.data);
+      const data = await api.get<any>(API_ENDPOINTS.BILLS.LIST, token);
+      setBills(data?.data ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -126,17 +121,10 @@ const Bills: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/bills/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.data);
-      }
+      const token = getAccessToken();
+      if (!token) return;
+      const data = await api.get<any>(API_ENDPOINTS.BILLS.STATS, token);
+      if (data?.data) setStats(data.data);
     } catch (err) {
       console.error("Failed to fetch stats:", err);
     }
@@ -144,18 +132,10 @@ const Bills: React.FC = () => {
 
   const generateNextNumber = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "http://localhost:3001/api/bills/next-number",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
+      const token = getAccessToken();
+      if (!token) return;
+      const data = await api.get<any>(API_ENDPOINTS.BILLS.NEXT_NUMBER, token);
+      if (data?.data?.nextNumber) {
         setFormData((prev) => ({ ...prev, number: data.data.nextNumber }));
       }
     } catch (err) {
@@ -165,21 +145,12 @@ const Bills: React.FC = () => {
 
   const createBill = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/bills", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create bill");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
-
+      await api.post<any>(API_ENDPOINTS.BILLS.LIST, formData, token);
       setShowCreateForm(false);
       setFormData({
         number: "",
@@ -213,23 +184,12 @@ const Bills: React.FC = () => {
 
   const updateBillStatus = async (billId: string, status: string) => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        `http://localhost:3001/api/bills/${billId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to update bill status");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
-
+      await api.patch<any>(`/bills/${billId}/status`, { status }, token);
       fetchBills();
       fetchStats();
     } catch (err) {

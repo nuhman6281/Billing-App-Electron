@@ -6,6 +6,7 @@ import morgan from "morgan";
 import { config } from "./config";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { logger } from "./utils/logger";
+import { setupDatabase } from "./database";
 
 // Import routes
 import { authRoutes } from "./routes/auth";
@@ -17,6 +18,10 @@ import vendorRoutes from "./routes/vendors";
 import invoiceRoutes from "./routes/invoices";
 import billRoutes from "./routes/bills";
 import dashboardRoutes from "./routes/dashboard";
+import paymentRoutes from "./routes/payments";
+import reportRoutes from "./routes/reports";
+import userRoutes from "./routes/users";
+import roleRoutes from "./routes/roles";
 
 const app = express();
 
@@ -75,6 +80,10 @@ app.use("/api/vendors", vendorRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/bills", billRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/roles", roleRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -85,31 +94,46 @@ app.use(errorHandler);
 // Start server
 const PORT = config.port || 3001;
 
-app.listen(PORT, () => {
-  logger.info("Application initialized successfully", {
-    service: "billing-app-server",
-    version: config.version,
-    environment: config.env,
-  });
+const startServer = async () => {
+  try {
+    // Initialize database connection
+    await setupDatabase();
+    
+    app.listen(PORT, () => {
+      logger.info("Application initialized successfully", {
+        service: "billing-app-server",
+        version: config.version,
+        environment: config.env,
+      });
 
-  logger.info(`Server is running on port ${PORT}`, {
-    service: "billing-app-server",
-    version: config.version,
-    environment: config.env,
-  });
+      logger.info(`Server is running on port ${PORT}`, {
+        service: "billing-app-server",
+        version: config.version,
+        environment: config.env,
+      });
 
-  logger.info(`Environment: ${config.env}`, {
-    service: "billing-app-server",
-    version: config.version,
-    environment: config.env,
-  });
+      logger.info(`Environment: ${config.env}`, {
+        service: "billing-app-server",
+        version: config.version,
+        environment: config.env,
+      });
 
-  logger.info(`Version: ${config.version}`, {
-    service: "billing-app-server",
-    version: config.version,
-    environment: config.env,
-  });
-});
+      logger.info(`Version: ${config.version}`, {
+        service: "billing-app-server",
+        version: config.version,
+        environment: config.env,
+      });
+    });
+  } catch (error) {
+    logger.error("Failed to start server", {
+      error: (error as Error).message,
+      stack: (error as Error).stack,
+    });
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Graceful shutdown
 process.on("SIGTERM", () => {

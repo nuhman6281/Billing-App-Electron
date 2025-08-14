@@ -5,6 +5,7 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
+import { api, API_ENDPOINTS } from "../config/api";
 
 export interface User {
   id: string;
@@ -64,26 +65,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const storedTokens = localStorage.getItem("auth_tokens");
         const legacyToken = localStorage.getItem("token");
 
-        if (storedTokens) {
-          const parsedTokens = JSON.parse(storedTokens);
-          setTokens(parsedTokens);
+        // Debug logging
+        console.log("checkAuth - storedTokens:", storedTokens);
+        console.log("checkAuth - legacyToken:", legacyToken);
 
-          // Try to get user profile
-          await refreshAuth();
+        if (storedTokens) {
+          try {
+            const parsedTokens = JSON.parse(storedTokens);
+            setTokens(parsedTokens);
+
+            // Try to get user profile with stored token
+            try {
+              const userData = await api.get<any>(
+                API_ENDPOINTS.AUTH.PROFILE,
+                parsedTokens.accessToken
+              );
+              if (userData.success && userData.data) {
+                setUser(userData.data);
+              } else {
+                // If profile fetch fails, try refresh
+                await refreshAuth();
+              }
+            } catch (error) {
+              // If profile fetch fails, try refresh
+              await refreshAuth();
+            }
+          } catch (error) {
+            console.error("Failed to validate stored tokens:", error);
+            // If validation fails, try refresh
+            try {
+              await refreshAuth();
+            } catch (refreshError) {
+              console.error("Refresh also failed:", refreshError);
+              localStorage.removeItem("auth_tokens");
+              localStorage.removeItem("token");
+            }
+          }
         } else if (legacyToken) {
           // If we only have the legacy token, try to get user info
           try {
-            const response = await fetch(
-              "http://localhost:3001/api/auth/profile",
-              {
-                headers: {
-                  Authorization: `Bearer ${legacyToken}`,
-                },
-              }
+            const userData = await api.get<any>(
+              API_ENDPOINTS.AUTH.PROFILE,
+              legacyToken
             );
-
-            if (response.ok) {
-              const userData = await response.json();
+            if (userData.success && userData.data) {
               setUser(userData.data);
               setTokens({
                 accessToken: legacyToken,
@@ -114,20 +139,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
 
-      const response = await fetch("http://localhost:3001/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
+      const data = await api.post<any>(API_ENDPOINTS.AUTH.LOGIN, {
+        email,
+        password,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Login failed");
-      }
-
-      const data = await response.json();
 
       if (data.success && data.data) {
         setUser(data.data.user);
@@ -160,20 +175,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
 
-      const response = await fetch("http://localhost:3001/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Registration failed");
-      }
-
-      const data = await response.json();
+      const data = await api.post<any>(API_ENDPOINTS.AUTH.REGISTER, userData);
 
       if (data.success && data.data) {
         setUser(data.data.user);
@@ -210,14 +212,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Call logout endpoint if we have tokens
     if (tokens?.refreshToken) {
-      fetch("http://localhost:3001/api/auth/logout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${tokens.accessToken}`,
-        },
-        body: JSON.stringify({ refreshToken: tokens.refreshToken }),
-      }).catch(console.error);
+      api
+        .post(
+          API_ENDPOINTS.AUTH.LOGOUT,
+          { refreshToken: tokens.refreshToken },
+          tokens.accessToken
+        )
+        .catch(console.error);
     }
   };
 
@@ -227,19 +228,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     try {
-      const response = await fetch("http://localhost:3001/api/auth/refresh", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ refreshToken: tokens.refreshToken }),
+      const data = await api.post<any>(API_ENDPOINTS.AUTH.REFRESH, {
+        refreshToken: tokens.refreshToken,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to refresh token");
-      }
-
-      const data = await response.json();
 
       if (data.success && data.data) {
         setUser(data.data.user);
@@ -266,13 +257,59 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const getAccessToken = (): string | null => {
-    return tokens?.accessToken || null;
+    // Debug logging
+    console.log("getAccessToken called - tokens state:", tokens);
+
+    // First try to get from state
+    if (tokens?.accessToken && tokens.accessToken !== "null") {
+      console.log("getAccessToken returning from state:", tokens.accessToken);
+      return tokens.accessToken;
+    }
+
+    // Fallback to localStorage
+    const storedToken = localStorage.getItem("token");
+    console.log("getAccessToken - storedToken from localStorage:", storedToken);
+    if (storedToken && storedToken !== "null" && storedToken !== "undefined") {
+      console.log(
+        "getAccessToken returning from localStorage token:",
+        storedToken
+      );
+      return storedToken;
+    }
+
+    // Try to get from auth_tokens
+    const storedTokens = localStorage.getItem("auth_tokens");
+    console.log(
+      "getAccessToken - storedTokens from localStorage:",
+      storedTokens
+    );
+    if (storedTokens) {
+      try {
+        const parsedTokens = JSON.parse(storedTokens);
+        if (
+          parsedTokens.accessToken &&
+          parsedTokens.accessToken !== "null" &&
+          parsedTokens.accessToken !== "undefined"
+        ) {
+          console.log(
+            "getAccessToken returning from auth_tokens:",
+            parsedTokens.accessToken
+          );
+          return parsedTokens.accessToken;
+        }
+      } catch (error) {
+        console.error("Error parsing stored tokens:", error);
+      }
+    }
+
+    console.log("getAccessToken returning null");
+    return null;
   };
 
   const value: AuthContextType = {
     user,
     tokens,
-    isAuthenticated: !!user && !!tokens,
+    isAuthenticated: !!user || (!!tokens && !!getAccessToken()),
     isLoading,
     login,
     register,

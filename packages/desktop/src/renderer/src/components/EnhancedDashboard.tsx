@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Users, 
-  FileText, 
+import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Users,
+  FileText,
   Calendar,
   BarChart3,
   PieChart,
@@ -20,7 +22,7 @@ import {
   Zap,
   Award,
   Globe,
-  Building2
+  Building2,
 } from "lucide-react";
 
 interface DashboardMetrics {
@@ -66,7 +68,7 @@ const quickActions: QuickAction[] = [
     description: "Generate a new invoice for customers",
     icon: FileText,
     href: "/invoices",
-    color: "bg-green-500 hover:bg-green-600"
+    color: "bg-green-500 hover:bg-green-600",
   },
   {
     id: "record-payment",
@@ -74,7 +76,7 @@ const quickActions: QuickAction[] = [
     description: "Record customer or vendor payments",
     icon: DollarSign,
     href: "/payments",
-    color: "bg-blue-500 hover:bg-blue-600"
+    color: "bg-blue-500 hover:bg-blue-600",
   },
   {
     id: "add-customer",
@@ -82,7 +84,7 @@ const quickActions: QuickAction[] = [
     description: "Create a new customer account",
     icon: Users,
     href: "/customers",
-    color: "bg-purple-500 hover:bg-purple-600"
+    color: "bg-purple-500 hover:bg-purple-600",
   },
   {
     id: "generate-report",
@@ -90,11 +92,12 @@ const quickActions: QuickAction[] = [
     description: "Create financial reports and analytics",
     icon: BarChart3,
     href: "/reports",
-    color: "bg-orange-500 hover:bg-orange-600"
-  }
+    color: "bg-orange-500 hover:bg-orange-600",
+  },
 ];
 
 export default function EnhancedDashboard() {
+  const { getAccessToken } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalRevenue: "0.00",
     totalExpenses: "0.00",
@@ -110,7 +113,7 @@ export default function EnhancedDashboard() {
     activeProjects: 0,
     monthlyRecurringRevenue: "0.00",
     customerSatisfaction: 0,
-    employeeProductivity: 0
+    employeeProductivity: 0,
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -123,32 +126,38 @@ export default function EnhancedDashboard() {
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem("token");
-      
+      const token = getAccessToken();
+
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
+
       // Fetch dashboard metrics
-      const metricsResponse = await fetch("http://localhost:3001/api/dashboard/metrics", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (metricsResponse.ok) {
-        const metricsData = await metricsResponse.json();
+      try {
+        const metricsData = await api.get<any>(
+          API_ENDPOINTS.DASHBOARD.METRICS,
+          token
+        );
         if (metricsData.success && metricsData.data) {
           setMetrics(metricsData.data);
         }
+      } catch (error) {
+        console.error("Error fetching metrics:", error);
       }
 
       // Fetch recent activity
-      const activityResponse = await fetch("http://localhost:3001/api/dashboard/activity", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (activityResponse.ok) {
-        const activityData = await activityResponse.json();
+      try {
+        const activityData = await api.get<any>(
+          API_ENDPOINTS.DASHBOARD.ACTIVITY,
+          token
+        );
         if (activityData.success && activityData.data) {
           setRecentActivity(activityData.data);
         }
+      } catch (error) {
+        console.error("Error fetching activity:", error);
       }
-
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       setError("Failed to load dashboard data");
@@ -157,24 +166,29 @@ export default function EnhancedDashboard() {
     }
   };
 
-  const getGrowthIcon = (value: number) => {
+  const getGrowthIcon = (value: number | undefined) => {
+    if (value === undefined || value === null)
+      return <Activity className="h-4 w-4 text-gray-600" />;
     if (value > 0) return <TrendingUp className="h-4 w-4 text-green-600" />;
     if (value < 0) return <TrendingDown className="h-4 w-4 text-red-600" />;
     return <Activity className="h-4 w-4 text-gray-600" />;
   };
 
-  const getGrowthColor = (value: number) => {
+  const getGrowthColor = (value: number | undefined) => {
+    if (value === undefined || value === null) return "text-gray-600";
     if (value > 0) return "text-green-600";
     if (value < 0) return "text-red-600";
     return "text-gray-600";
   };
 
-  const formatCurrency = (value: string) => {
-    return `$${parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (value: string | undefined) => {
+    if (!value) return "$0.00";
+    return `$${parseFloat(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const formatPercentage = (value: number) => {
-    return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+  const formatPercentage = (value: number | undefined) => {
+    if (value === undefined || value === null) return "0.0%";
+    return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
   };
 
   const getActivityIcon = (type: string) => {
@@ -183,7 +197,7 @@ export default function EnhancedDashboard() {
       BILL: FileText,
       PAYMENT: DollarSign,
       CUSTOMER: Users,
-      VENDOR: Building2
+      VENDOR: Building2,
     };
     const Icon = icons[type as keyof typeof icons] || Activity;
     return <Icon className="h-4 w-4" />;
@@ -194,7 +208,7 @@ export default function EnhancedDashboard() {
       SUCCESS: "text-green-600",
       PENDING: "text-yellow-600",
       FAILED: "text-red-600",
-      WARNING: "text-orange-600"
+      WARNING: "text-orange-600",
     };
     return colors[status as keyof typeof colors] || "text-gray-600";
   };
@@ -220,12 +234,14 @@ export default function EnhancedDashboard() {
           </div>
           <div className="text-right">
             <p className="text-blue-100">Today is</p>
-            <p className="text-2xl font-bold">{new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}</p>
+            <p className="text-2xl font-bold">
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
           </div>
         </div>
       </div>
@@ -235,15 +251,22 @@ export default function EnhancedDashboard() {
         {quickActions.map((action) => {
           const Icon = action.icon;
           return (
-            <Card key={action.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Card
+              key={action.id}
+              className="hover:shadow-lg transition-shadow cursor-pointer"
+            >
               <CardContent className="p-6">
                 <div className="flex items-center space-x-3">
                   <div className={`p-3 rounded-lg ${action.color} text-white`}>
                     <Icon className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">{action.title}</h3>
-                    <p className="text-sm text-gray-500">{action.description}</p>
+                    <h3 className="font-medium text-gray-900">
+                      {action.title}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {action.description}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -256,13 +279,19 @@ export default function EnhancedDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Revenue
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(metrics.totalRevenue)}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(metrics.totalRevenue)}
+            </div>
             <div className="flex items-center mt-1">
               {getGrowthIcon(metrics.revenueGrowth)}
-              <span className={`ml-1 text-sm ${getGrowthColor(metrics.revenueGrowth)}`}>
+              <span
+                className={`ml-1 text-sm ${getGrowthColor(metrics.revenueGrowth)}`}
+              >
                 {formatPercentage(metrics.revenueGrowth)}
               </span>
             </div>
@@ -271,38 +300,48 @@ export default function EnhancedDashboard() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Net Profit</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Net Profit
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${parseFloat(metrics.netProfit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div
+              className={`text-2xl font-bold ${parseFloat(metrics.netProfit || "0") >= 0 ? "text-green-600" : "text-red-600"}`}
+            >
               {formatCurrency(metrics.netProfit)}
             </div>
             <div className="text-sm text-gray-500 mt-1">
-              {metrics.profitMargin.toFixed(1)}% margin
+              {(metrics.profitMargin || 0).toFixed(1)}% margin
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Cash Flow</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Cash Flow
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${parseFloat(metrics.cashFlow) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div
+              className={`text-2xl font-bold ${parseFloat(metrics.cashFlow || "0") >= 0 ? "text-green-600" : "text-red-600"}`}
+            >
               {formatCurrency(metrics.cashFlow)}
             </div>
-            <div className="text-sm text-gray-500 mt-1">
-              Net cash position
-            </div>
+            <div className="text-sm text-gray-500 mt-1">Net cash position</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">MRR</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              MRR
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{formatCurrency(metrics.monthlyRecurringRevenue)}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {formatCurrency(metrics.monthlyRecurringRevenue)}
+            </div>
             <div className="text-sm text-gray-500 mt-1">
               Monthly recurring revenue
             </div>
@@ -322,24 +361,40 @@ export default function EnhancedDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Outstanding Invoices</span>
-              <span className="font-medium text-orange-600">{formatCurrency(metrics.outstandingInvoices)}</span>
+              <span className="text-sm text-gray-600">
+                Outstanding Invoices
+              </span>
+              <span className="font-medium text-orange-600">
+                {formatCurrency(metrics.outstandingInvoices)}
+              </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Overdue Bills</span>
-              <span className="font-medium text-red-600">{formatCurrency(metrics.overdueBills)}</span>
+              <span className="font-medium text-red-600">
+                {formatCurrency(metrics.overdueBills)}
+              </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Profit Margin</span>
-              <span className={`font-medium ${metrics.profitMargin >= 15 ? 'text-green-600' : 'text-yellow-600'}`}>
-                {metrics.profitMargin.toFixed(1)}%
+              <span
+                className={`font-medium ${(metrics.profitMargin || 0) >= 15 ? "text-green-600" : "text-yellow-600"}`}
+              >
+                {(metrics.profitMargin || 0).toFixed(1)}%
               </span>
             </div>
             <div className="pt-2 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Status</span>
-                <Badge variant={metrics.profitMargin >= 15 ? "default" : "destructive"}>
-                  {metrics.profitMargin >= 15 ? "Healthy" : "Needs Attention"}
+                <Badge
+                  variant={
+                    (metrics.profitMargin || 0) >= 15
+                      ? "default"
+                      : "destructive"
+                  }
+                >
+                  {(metrics.profitMargin || 0) >= 15
+                    ? "Healthy"
+                    : "Needs Attention"}
                 </Badge>
               </div>
             </div>
@@ -357,15 +412,21 @@ export default function EnhancedDashboard() {
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Total Customers</span>
-              <span className="font-medium text-blue-600">{metrics.totalCustomers}</span>
+              <span className="font-medium text-blue-600">
+                {metrics.totalCustomers}
+              </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Total Vendors</span>
-              <span className="font-medium text-purple-600">{metrics.totalVendors}</span>
+              <span className="font-medium text-purple-600">
+                {metrics.totalVendors}
+              </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Active Projects</span>
-              <span className="font-medium text-green-600">{metrics.activeProjects}</span>
+              <span className="font-medium text-green-600">
+                {metrics.activeProjects}
+              </span>
             </div>
             <div className="pt-2 border-t">
               <div className="flex items-center justify-between">
@@ -388,19 +449,30 @@ export default function EnhancedDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Customer Satisfaction</span>
-              <span className="font-medium text-green-600">{metrics.customerSatisfaction}%</span>
+              <span className="text-sm text-gray-600">
+                Customer Satisfaction
+              </span>
+              <span className="font-medium text-green-600">
+                {metrics.customerSatisfaction}%
+              </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Employee Productivity</span>
-              <span className="font-medium text-blue-600">{metrics.employeeProductivity}%</span>
+              <span className="text-sm text-gray-600">
+                Employee Productivity
+              </span>
+              <span className="font-medium text-blue-600">
+                {metrics.employeeProductivity}%
+              </span>
             </div>
             <div className="pt-2 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Overall Rating</span>
                 <div className="flex items-center">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className={`h-4 w-4 ${i < Math.floor(metrics.customerSatisfaction / 20) ? 'text-yellow-400' : 'text-gray-300'}`} />
+                    <Star
+                      key={i}
+                      className={`h-4 w-4 ${i < Math.floor(metrics.customerSatisfaction / 20) ? "text-yellow-400" : "text-gray-300"}`}
+                    />
                   ))}
                 </div>
               </div>
@@ -421,7 +493,10 @@ export default function EnhancedDashboard() {
           <div className="space-y-3">
             {recentActivity.length > 0 ? (
               recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50">
+                <div
+                  key={activity.id}
+                  className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50"
+                >
                   <div className="flex-shrink-0">
                     {getActivityIcon(activity.type)}
                   </div>
@@ -439,7 +514,13 @@ export default function EnhancedDashboard() {
                         {formatCurrency(activity.amount)}
                       </span>
                     )}
-                    <Badge variant={activity.status === "SUCCESS" ? "default" : "destructive"}>
+                    <Badge
+                      variant={
+                        activity.status === "SUCCESS"
+                          ? "default"
+                          : "destructive"
+                      }
+                    >
                       {activity.status}
                     </Badge>
                   </div>
@@ -473,13 +554,15 @@ export default function EnhancedDashboard() {
                     Overdue Bills Alert
                   </p>
                   <p className="text-sm text-red-700">
-                    You have {formatCurrency(metrics.overdueBills)} in overdue bills that require attention.
+                    You have {formatCurrency(metrics.overdueBills)} in overdue
+                    bills that require attention.
                   </p>
                 </div>
               </div>
             )}
 
-            {parseFloat(metrics.outstandingInvoices) > parseFloat(metrics.totalRevenue) * 0.3 && (
+            {parseFloat(metrics.outstandingInvoices) >
+              parseFloat(metrics.totalRevenue) * 0.3 && (
               <div className="flex items-center p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <Clock className="h-5 w-5 text-yellow-600 mr-3" />
                 <div>
@@ -487,7 +570,13 @@ export default function EnhancedDashboard() {
                     High Outstanding Invoices
                   </p>
                   <p className="text-sm text-yellow-700">
-                    Outstanding invoices represent {((parseFloat(metrics.outstandingInvoices) / parseFloat(metrics.totalRevenue)) * 100).toFixed(1)}% of total revenue.
+                    Outstanding invoices represent{" "}
+                    {(
+                      (parseFloat(metrics.outstandingInvoices) /
+                        parseFloat(metrics.totalRevenue)) *
+                      100
+                    ).toFixed(1)}
+                    % of total revenue.
                   </p>
                 </div>
               </div>
@@ -501,7 +590,9 @@ export default function EnhancedDashboard() {
                     Low Profit Margin Warning
                   </p>
                   <p className="text-sm text-orange-700">
-                    Your current profit margin of {metrics.profitMargin.toFixed(1)}% is below the recommended 15%.
+                    Your current profit margin of{" "}
+                    {metrics.profitMargin.toFixed(1)}% is below the recommended
+                    15%.
                   </p>
                 </div>
               </div>
@@ -515,7 +606,8 @@ export default function EnhancedDashboard() {
                     Strong Growth Performance
                   </p>
                   <p className="text-sm text-green-700">
-                    Congratulations! Your revenue has grown by {metrics.revenueGrowth.toFixed(1)}% this period.
+                    Congratulations! Your revenue has grown by{" "}
+                    {metrics.revenueGrowth.toFixed(1)}% this period.
                   </p>
                 </div>
               </div>

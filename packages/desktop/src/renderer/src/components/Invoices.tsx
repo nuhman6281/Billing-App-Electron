@@ -21,6 +21,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
 
 interface InvoiceItem {
   id: string;
@@ -67,7 +68,7 @@ interface InvoiceStats {
 }
 
 const Invoices: React.FC = () => {
-  const { user } = useAuth();
+  const { getAccessToken } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<InvoiceStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +83,7 @@ const Invoices: React.FC = () => {
     customerId: "",
     date: "",
     dueDate: "",
-    status: "DRAFT" as const,
+    status: "DRAFT" as "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "VOIDED",
     subtotal: "",
     taxAmount: "",
     discountAmount: "",
@@ -109,19 +110,13 @@ const Invoices: React.FC = () => {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/invoices", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch invoices");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
-
-      const data = await response.json();
-      setInvoices(data.data);
+      const data = await api.get<any>(API_ENDPOINTS.INVOICES.LIST, token);
+      setInvoices(data?.data ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -131,17 +126,10 @@ const Invoices: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/invoices/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.data);
-      }
+      const token = getAccessToken();
+      if (!token) return;
+      const data = await api.get<any>(API_ENDPOINTS.INVOICES.STATS, token);
+      if (data?.data) setStats(data.data);
     } catch (err) {
       console.error("Failed to fetch stats:", err);
     }
@@ -149,18 +137,13 @@ const Invoices: React.FC = () => {
 
   const generateNextNumber = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "http://localhost:3001/api/invoices/next-number",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      const token = getAccessToken();
+      if (!token) return;
+      const data = await api.get<any>(
+        API_ENDPOINTS.INVOICES.NEXT_NUMBER,
+        token
       );
-
-      if (response.ok) {
-        const data = await response.json();
+      if (data?.data?.nextNumber) {
         setFormData((prev) => ({ ...prev, number: data.data.nextNumber }));
       }
     } catch (err) {
@@ -170,21 +153,12 @@ const Invoices: React.FC = () => {
 
   const createInvoice = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/invoices", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create invoice");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
-
+      await api.post<any>(API_ENDPOINTS.INVOICES.LIST, formData, token);
       setShowCreateForm(false);
       setFormData({
         number: "",
@@ -218,23 +192,12 @@ const Invoices: React.FC = () => {
 
   const updateInvoiceStatus = async (invoiceId: string, status: string) => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        `http://localhost:3001/api/invoices/${invoiceId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to update invoice status");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
-
+      await api.patch<any>(`/invoices/${invoiceId}/status`, { status }, token);
       fetchInvoices();
       fetchStats();
     } catch (err) {
@@ -319,7 +282,9 @@ const Invoices: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Invoices</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Invoices
+              </CardTitle>
               <Receipt className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -551,7 +516,10 @@ const Invoices: React.FC = () => {
                 placeholder="Enter customer ID"
                 value={formData.customerId}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, customerId: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    customerId: e.target.value,
+                  }))
                 }
               />
             </div>

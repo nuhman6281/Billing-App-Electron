@@ -19,6 +19,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
 
 interface Customer {
   id: string;
@@ -55,7 +56,7 @@ interface CustomerStats {
 }
 
 const Customers: React.FC = () => {
-  const { user } = useAuth();
+  const { getAccessToken } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [stats, setStats] = useState<CustomerStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +78,7 @@ const Customers: React.FC = () => {
     state: "",
     zipCode: "",
     country: "",
-    status: "ACTIVE" as const,
+    status: "ACTIVE" as "ACTIVE" | "INACTIVE" | "PROSPECT",
     creditLimit: "",
     paymentTerms: "",
     notes: "",
@@ -91,19 +92,13 @@ const Customers: React.FC = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/customers", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch customers");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
-
-      const data = await response.json();
-      setCustomers(data.data);
+      const data = await api.get<any>(API_ENDPOINTS.CUSTOMERS.LIST, token);
+      setCustomers(data?.data ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -113,17 +108,10 @@ const Customers: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/customers/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.data);
-      }
+      const token = getAccessToken();
+      if (!token) return;
+      const data = await api.get<any>(API_ENDPOINTS.CUSTOMERS.STATS, token);
+      if (data?.data) setStats(data.data);
     } catch (err) {
       console.error("Failed to fetch stats:", err);
     }
@@ -131,18 +119,10 @@ const Customers: React.FC = () => {
 
   const generateNextCode = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "http://localhost:3001/api/customers/next-code",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
+      const token = getAccessToken();
+      if (!token) return;
+      const data = await api.get<any>(API_ENDPOINTS.CUSTOMERS.NEXT_CODE, token);
+      if (data?.data?.nextCode) {
         setFormData((prev) => ({ ...prev, code: data.data.nextCode }));
       }
     } catch (err) {
@@ -152,7 +132,11 @@ const Customers: React.FC = () => {
 
   const createCustomer = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
       const customerData = {
         ...formData,
         address: {
@@ -163,21 +147,7 @@ const Customers: React.FC = () => {
           country: formData.country,
         },
       };
-
-      const response = await fetch("http://localhost:3001/api/customers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(customerData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create customer");
-      }
-
+      await api.post<any>(API_ENDPOINTS.CUSTOMERS.LIST, customerData, token);
       setShowCreateForm(false);
       resetForm();
       fetchCustomers();
@@ -189,9 +159,12 @@ const Customers: React.FC = () => {
 
   const updateCustomer = async () => {
     if (!editingCustomer) return;
-
     try {
-      const token = localStorage.getItem("accessToken");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
       const customerData = {
         ...formData,
         address: {
@@ -202,24 +175,11 @@ const Customers: React.FC = () => {
           country: formData.country,
         },
       };
-
-      const response = await fetch(
-        `http://localhost:3001/api/customers/${editingCustomer.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(customerData),
-        }
+      await api.put<any>(
+        `/customers/${editingCustomer.id}`,
+        customerData,
+        token
       );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update customer");
-      }
-
       setEditingCustomer(null);
       resetForm();
       fetchCustomers();
@@ -231,23 +191,13 @@ const Customers: React.FC = () => {
 
   const deleteCustomer = async (customerId: string) => {
     if (!confirm("Are you sure you want to delete this customer?")) return;
-
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        `http://localhost:3001/api/customers/${customerId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete customer");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
-
+      await api.delete<any>(`/customers/${customerId}`, token);
       fetchCustomers();
       fetchStats();
     } catch (err) {
@@ -352,7 +302,9 @@ const Customers: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Customers
+              </CardTitle>
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -364,7 +316,9 @@ const Customers: React.FC = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Revenue
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -375,7 +329,9 @@ const Customers: React.FC = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Balance</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Average Balance
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -386,11 +342,15 @@ const Customers: React.FC = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">New This Month</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                New This Month
+              </CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.newCustomersThisMonth}</div>
+              <div className="text-2xl font-bold">
+                {stats.newCustomersThisMonth}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -470,7 +430,9 @@ const Customers: React.FC = () => {
                           {customer.address.city}, {customer.address.state}
                         </span>
                       )}
-                      <span>Credit Limit: {formatCurrency(customer.creditLimit)}</span>
+                      <span>
+                        Credit Limit: {formatCurrency(customer.creditLimit)}
+                      </span>
                       <span>Balance: {formatCurrency(customer.balance)}</span>
                     </div>
                   )}
@@ -517,7 +479,9 @@ const Customers: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Customer Code</label>
+                <label className="block text-sm font-medium mb-1">
+                  Customer Code
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -540,7 +504,10 @@ const Customers: React.FC = () => {
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      status: e.target.value as "ACTIVE" | "INACTIVE" | "PROSPECT",
+                      status: e.target.value as
+                        | "ACTIVE"
+                        | "INACTIVE"
+                        | "PROSPECT",
                     }))
                   }
                 >
@@ -565,13 +532,18 @@ const Customers: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Company</label>
+                <label className="block text-sm font-medium mb-1">
+                  Company
+                </label>
                 <input
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   value={formData.company}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, company: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      company: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -638,7 +610,10 @@ const Customers: React.FC = () => {
                   className="px-3 py-2 border border-gray-300 rounded-md"
                   value={formData.zipCode}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, zipCode: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      zipCode: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -646,7 +621,9 @@ const Customers: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Credit Limit</label>
+                <label className="block text-sm font-medium mb-1">
+                  Credit Limit
+                </label>
                 <input
                   type="number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -660,7 +637,9 @@ const Customers: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Payment Terms</label>
+                <label className="block text-sm font-medium mb-1">
+                  Payment Terms
+                </label>
                 <input
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"

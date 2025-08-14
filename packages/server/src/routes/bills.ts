@@ -2,7 +2,7 @@ import { Router, Response } from "express";
 import { BillService } from "../models/Bill";
 import prisma from "../database";
 import { authenticateToken, requireRole } from "../middleware/auth";
-import { AuthenticatedRequest } from "../types/auth";
+import { AuthenticatedRequest } from "../middleware/auth";
 import { Decimal } from "@prisma/client/runtime/library";
 
 const router = Router();

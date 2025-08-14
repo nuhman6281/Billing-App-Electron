@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { ChartOfAccountService } from "../models/ChartOfAccount";
 import prisma from "../database";
 import { authenticateToken, requireRole } from "../middleware/auth";
-import { AuthenticatedRequest } from "../types/auth";
+import { AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
 const chartOfAccountService = new ChartOfAccountService(prisma);

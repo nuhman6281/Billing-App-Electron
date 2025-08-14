@@ -36,7 +36,13 @@ export const authenticateToken = async (
     // Check if user still exists and is active
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, email: true, role: true, status: true, companyId: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        status: true,
+        companyId: true,
+      },
     });
 
     if (!user || user.status !== "ACTIVE") {
@@ -48,7 +54,7 @@ export const authenticateToken = async (
       userId: user.id,
       email: user.email,
       role: user.role,
-      companyId: user.companyId,
+      companyId: user.companyId || undefined,
     };
 
     next();

@@ -19,6 +19,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { api, API_ENDPOINTS } from "../config/api";
 
 interface Vendor {
   id: string;
@@ -56,7 +57,7 @@ interface VendorStats {
 }
 
 const Vendors: React.FC = () => {
-  const { user } = useAuth();
+  const { getAccessToken } = useAuth();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [stats, setStats] = useState<VendorStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +79,7 @@ const Vendors: React.FC = () => {
     state: "",
     zipCode: "",
     country: "",
-    status: "ACTIVE" as const,
+    status: "ACTIVE" as "ACTIVE" | "INACTIVE" | "APPROVED" | "PENDING",
     paymentTerms: "",
     notes: "",
     taxId: "",
@@ -94,19 +95,13 @@ const Vendors: React.FC = () => {
   const fetchVendors = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/vendors", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch vendors");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
-
-      const data = await response.json();
-      setVendors(data.data);
+      const data = await api.get<any>(API_ENDPOINTS.VENDORS.LIST, token);
+      setVendors(data?.data ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -116,17 +111,10 @@ const Vendors: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("http://localhost:3001/api/vendors/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.data);
-      }
+      const token = getAccessToken();
+      if (!token) return;
+      const data = await api.get<any>(API_ENDPOINTS.VENDORS.STATS, token);
+      if (data?.data) setStats(data.data);
     } catch (err) {
       console.error("Failed to fetch stats:", err);
     }
@@ -134,18 +122,10 @@ const Vendors: React.FC = () => {
 
   const generateNextCode = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        "http://localhost:3001/api/vendors/next-code",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
+      const token = getAccessToken();
+      if (!token) return;
+      const data = await api.get<any>(API_ENDPOINTS.VENDORS.NEXT_CODE, token);
+      if (data?.data?.nextCode) {
         setFormData((prev) => ({ ...prev, code: data.data.nextCode }));
       }
     } catch (err) {
@@ -155,7 +135,11 @@ const Vendors: React.FC = () => {
 
   const createVendor = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
       const vendorData = {
         ...formData,
         address: {
@@ -167,19 +151,7 @@ const Vendors: React.FC = () => {
         },
       };
 
-      const response = await fetch("http://localhost:3001/api/vendors", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(vendorData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create vendor");
-      }
+      await api.post<any>(API_ENDPOINTS.VENDORS.LIST, vendorData, token);
 
       setShowCreateForm(false);
       resetForm();
@@ -194,7 +166,11 @@ const Vendors: React.FC = () => {
     if (!editingVendor) return;
 
     try {
-      const token = localStorage.getItem("accessToken");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
+      }
       const vendorData = {
         ...formData,
         address: {
@@ -206,22 +182,7 @@ const Vendors: React.FC = () => {
         },
       };
 
-      const response = await fetch(
-        `http://localhost:3001/api/vendors/${editingVendor.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(vendorData),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update vendor");
-      }
+      await api.put<any>(`/vendors/${editingVendor.id}`, vendorData, token);
 
       setEditingVendor(null);
       resetForm();
@@ -236,20 +197,12 @@ const Vendors: React.FC = () => {
     if (!confirm("Are you sure you want to delete this vendor?")) return;
 
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        `http://localhost:3001/api/vendors/${vendorId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete vendor");
+      const token = getAccessToken();
+      if (!token) {
+        setError("No authentication token available");
+        return;
       }
+      await api.delete<any>(`/vendors/${vendorId}`, token);
 
       fetchVendors();
       fetchStats();
@@ -361,7 +314,9 @@ const Vendors: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Vendors</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Vendors
+              </CardTitle>
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -384,7 +339,9 @@ const Vendors: React.FC = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Bill</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Average Bill
+              </CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -395,11 +352,15 @@ const Vendors: React.FC = () => {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">New This Month</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                New This Month
+              </CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.newVendorsThisMonth}</div>
+              <div className="text-2xl font-bold">
+                {stats.newVendorsThisMonth}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -527,7 +488,9 @@ const Vendors: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Vendor Code</label>
+                <label className="block text-sm font-medium mb-1">
+                  Vendor Code
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -550,7 +513,11 @@ const Vendors: React.FC = () => {
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      status: e.target.value as "ACTIVE" | "INACTIVE" | "APPROVED" | "PENDING",
+                      status: e.target.value as
+                        | "ACTIVE"
+                        | "INACTIVE"
+                        | "APPROVED"
+                        | "PENDING",
                     }))
                   }
                 >
@@ -576,13 +543,18 @@ const Vendors: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Company</label>
+                <label className="block text-sm font-medium mb-1">
+                  Company
+                </label>
                 <input
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   value={formData.company}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, company: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      company: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -615,24 +587,34 @@ const Vendors: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Contact Person</label>
+                <label className="block text-sm font-medium mb-1">
+                  Contact Person
+                </label>
                 <input
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   value={formData.contactPerson}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, contactPerson: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      contactPerson: e.target.value,
+                    }))
                   }
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Website</label>
+                <label className="block text-sm font-medium mb-1">
+                  Website
+                </label>
                 <input
                   type="url"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   value={formData.website}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, website: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      website: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -674,7 +656,10 @@ const Vendors: React.FC = () => {
                   className="px-3 py-2 border border-gray-300 rounded-md"
                   value={formData.zipCode}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, zipCode: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      zipCode: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -682,7 +667,9 @@ const Vendors: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Payment Terms</label>
+                <label className="block text-sm font-medium mb-1">
+                  Payment Terms
+                </label>
                 <input
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
@@ -722,9 +709,7 @@ const Vendors: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <Button
-                onClick={editingVendor ? updateVendor : createVendor}
-              >
+              <Button onClick={editingVendor ? updateVendor : createVendor}>
                 {editingVendor ? "Update Vendor" : "Create Vendor"}
               </Button>
               <Button
