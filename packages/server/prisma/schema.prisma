@@ -61,8 +61,11 @@ model User {
   payments              Payment[]
   customers             Customer[]
   vendors               Vendor[]
-  projects              Project[]
+  managedProjects       Project[] @relation("ProjectManager")
+  createdProjects       Project[] @relation("ProjectCreator")
+  updatedProjects       Project[] @relation("ProjectUpdater")
   costCenters           CostCenter[]
+  notificationSettings  UserNotificationSettings?
 
   @@map("users")
 }
@@ -77,6 +80,11 @@ model Company {
   email       String?
   website     String?
   logo        String?
+  defaultCurrency String @default("USD")
+  fiscalYearStart String @default("01-01")
+  taxRate     Decimal? @db.Decimal(10, 4)
+  invoicePrefix String @default("INV")
+  billPrefix  String @default("BILL")
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -96,6 +104,9 @@ model Company {
   vendors    Vendor[]
   projects   Project[]
   costCenters CostCenter[]
+  taxCodes   TaxCode[]
+  securitySettings CompanySecuritySettings?
+  dataBackups DataBackup[]
 
   @@map("companies")
 }
@@ -330,6 +341,7 @@ model Customer {
   user        User    @relation(fields: [createdBy], references: [id])
   invoices    Invoice[]
   payments    Payment[]
+  projects    Project[]
 
   @@map("customers")
 }
@@ -410,8 +422,13 @@ model Project {
   endDate     DateTime?
   status      ProjectStatus @default(ACTIVE)
   budget      Decimal  @default(0) @db.Decimal(15, 2)
+  hourlyRate  Decimal? @db.Decimal(15, 2)
+  customerId  String
+  managerId   String?
+  notes       String?
   companyId   String
   createdBy   String
+  updatedBy   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   isDeleted   Boolean  @default(false)
@@ -419,7 +436,10 @@ model Project {
 
   // Relations
   company     Company @relation(fields: [companyId], references: [id])
-  user        User    @relation(fields: [createdBy], references: [id])
+  customer    Customer @relation(fields: [customerId], references: [id])
+  manager     User? @relation("ProjectManager", fields: [managerId], references: [id])
+  creator     User @relation("ProjectCreator", fields: [createdBy], references: [id])
+  updater     User @relation("ProjectUpdater", fields: [updatedBy], references: [id])
 
   @@map("projects")
 }
@@ -449,6 +469,95 @@ model CostCenter {
 }
 
 // ============================================================================
+// ============================================================================
+// SETTINGS & CONFIGURATION
+// ============================================================================
+
+model TaxCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  rate        Decimal  @db.Decimal(10, 4)
+  isActive    Boolean  @default(true)
+  companyId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+  updatedBy   String
+
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  @@map("tax_codes")
+}
+
+model CompanySecuritySettings {
+  id                           String   @id @default(cuid())
+  companyId                    String   @unique
+  passwordMinLength            Int      @default(8)
+  passwordRequireUppercase     Boolean  @default(true)
+  passwordRequireLowercase     Boolean  @default(true)
+  passwordRequireNumbers       Boolean  @default(true)
+  passwordRequireSpecialChars  Boolean  @default(true)
+  passwordExpirationDays       Int      @default(90)
+  sessionTimeout               Int      @default(30)
+  mfaRequired                  Boolean  @default(false)
+  ipWhitelist                 String[]
+  failedLoginAttempts          Int      @default(5)
+  accountLockoutDuration       Int      @default(15)
+  auditLogging                 Boolean  @default(true)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  // Relations
+  company                      Company  @relation(fields: [companyId], references: [id])
+
+  @@map("company_security_settings")
+}
+
+model UserNotificationSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  emailNotifications    Boolean  @default(true)
+  pushNotifications     Boolean  @default(false)
+  invoiceReminders      Boolean  @default(true)
+  billReminders         Boolean  @default(true)
+  paymentConfirmations  Boolean  @default(true)
+  overdueAlerts         Boolean  @default(true)
+  reportDelivery        Boolean  @default(false)
+  securityAlerts        Boolean  @default(true)
+  reminderFrequency     String   @default("weekly")
+  quietHoursEnabled     Boolean  @default(false)
+  quietHoursStart       String?  @default("22:00")
+  quietHoursEnd         String?  @default("08:00")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  user                  User     @relation(fields: [userId], references: [id])
+
+  @@map("user_notification_settings")
+}
+
+model DataBackup {
+  id          String   @id @default(cuid())
+  companyId   String
+  filename    String
+  size        String
+  status      String   @default("IN_PROGRESS")
+  filePath    String?
+  downloadUrl String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  createdBy   String
+
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  @@map("data_backups")
+}
+
 // ENUMS
 // ============================================================================
 
@@ -543,6 +652,7 @@ enum PaymentMethod {
 }
 
 enum ProjectStatus {
+  PLANNING
   ACTIVE
   ON_HOLD
   COMPLETED

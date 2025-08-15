@@ -22,6 +22,9 @@ import paymentRoutes from "./routes/payments";
 import reportRoutes from "./routes/reports";
 import userRoutes from "./routes/users";
 import roleRoutes from "./routes/roles";
+import projectRoutes from "./routes/projects";
+import dataRoutes from "./routes/data";
+import settingsRoutes from "./routes/settings";
 
 const app = express();
 
@@ -84,6 +87,9 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/data", dataRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -98,7 +104,7 @@ const startServer = async () => {
   try {
     // Initialize database connection
     await setupDatabase();
-    
+
     app.listen(PORT, () => {
       logger.info("Application initialized successfully", {
         service: "billing-app-server",

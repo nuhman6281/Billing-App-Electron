@@ -550,3 +550,4 @@ export class CompanyService {
     // This method can be extended to handle other company-specific initializations
   }
 }
+

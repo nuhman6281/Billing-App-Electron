@@ -3,6 +3,7 @@ import { ChartOfAccountService } from "../models/ChartOfAccount";
 import prisma from "../database";
 import { authenticateToken, requireRole } from "../middleware/auth";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { mapAccountCategoryToFrontend, mapAccountTypeToFrontend } from "../utils/enumMapping";
 
 const router = Router();
 const chartOfAccountService = new ChartOfAccountService(prisma);
@@ -37,10 +38,17 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
       search: search as string,
     });
 
+    // Map database enum values back to frontend display values
+    const mappedAccounts = accounts.map(account => ({
+      ...account,
+      type: mapAccountTypeToFrontend(account.type) || account.type,
+      category: mapAccountCategoryToFrontend(account.category) || account.category,
+    }));
+
     res.json({
       success: true,
       message: "Chart of accounts retrieved successfully",
-      data: accounts,
+      data: mappedAccounts,
     });
   } catch (error: any) {
     console.error("Error retrieving chart of accounts:", error);
@@ -106,10 +114,22 @@ router.get("/tree", async (req: AuthenticatedRequest, res: Response) => {
 
     const accountTree = await chartOfAccountService.getAccountTree(companyId);
 
+    // Map database enum values back to frontend display values recursively
+    const mapTreeRecursively = (nodes: any[]): any[] => {
+      return nodes.map(node => ({
+        ...node,
+        type: mapAccountTypeToFrontend(node.type) || node.type,
+        category: mapAccountCategoryToFrontend(node.category) || node.category,
+        children: node.children ? mapTreeRecursively(node.children) : [],
+      }));
+    };
+
+    const mappedTree = mapTreeRecursively(accountTree);
+
     res.json({
       success: true,
       message: "Chart of accounts tree retrieved successfully",
-      data: accountTree,
+      data: mappedTree,
     });
   } catch (error: any) {
     console.error("Error retrieving chart of accounts tree:", error);
@@ -150,10 +170,17 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
+    // Map database enum values back to frontend display values
+    const mappedAccount = {
+      ...account,
+      type: mapAccountTypeToFrontend(account.type) || account.type,
+      category: mapAccountCategoryToFrontend(account.category) || account.category,
+    };
+
     res.json({
       success: true,
       message: "Chart of account retrieved successfully",
-      data: account,
+      data: mappedAccount,
     });
   } catch (error: any) {
     console.error("Error retrieving chart of account:", error);

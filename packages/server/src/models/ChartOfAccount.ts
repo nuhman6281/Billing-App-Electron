@@ -5,12 +5,13 @@ import {
   AccountCategory,
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { mapAccountCategoryToDatabase, mapAccountTypeToDatabase } from "../utils/enumMapping";
 
 export interface CreateChartOfAccountInput {
   code: string;
   name: string;
-  type: AccountType;
-  category: AccountCategory;
+  type: string; // Accept string from frontend, will be mapped to enum
+  category: string; // Accept string from frontend, will be mapped to enum
   parentId?: string;
   companyId: string;
   description?: string;
@@ -21,8 +22,8 @@ export interface CreateChartOfAccountInput {
 export interface UpdateChartOfAccountInput {
   code?: string;
   name?: string;
-  type?: AccountType;
-  category?: AccountCategory;
+  type?: string; // Accept string from frontend, will be mapped to enum
+  category?: string; // Accept string from frontend, will be mapped to enum
   parentId?: string;
   description?: string;
   isActive?: boolean;
@@ -88,9 +89,15 @@ export class ChartOfAccountService {
       }
     }
 
+    // Map frontend display values to database enum values
+    const mappedType = mapAccountTypeToDatabase(input.type as any) || input.type;
+    const mappedCategory = mapAccountCategoryToDatabase(input.category as any) || input.category;
+
     return this.prisma.chartOfAccount.create({
       data: {
         ...input,
+        type: mappedType as AccountType,
+        category: mappedCategory as AccountCategory,
         balance: new Decimal(0),
       },
     });
@@ -163,12 +170,19 @@ export class ChartOfAccountService {
       }
     }
 
+    // Map frontend display values to database enum values if provided
+    const updateData: any = { ...input, updatedAt: new Date() };
+    
+    if (input.type) {
+      updateData.type = mapAccountTypeToDatabase(input.type) || input.type;
+    }
+    if (input.category) {
+      updateData.category = mapAccountCategoryToDatabase(input.category) || input.category;
+    }
+
     return this.prisma.chartOfAccount.update({
       where: { id },
-      data: {
-        ...input,
-        updatedAt: new Date(),
-      },
+      data: updateData,
     });
   }
 
@@ -194,8 +208,8 @@ export class ChartOfAccountService {
   async getAccounts(
     companyId: string,
     options: {
-      type?: AccountType;
-      category?: AccountCategory;
+      type?: string; // Accept string from frontend, will be mapped to enum
+      category?: string; // Accept string from frontend, will be mapped to enum
       isActive?: boolean;
       parentId?: string | null;
       search?: string;
@@ -206,8 +220,13 @@ export class ChartOfAccountService {
       isDeleted: false,
     };
 
-    if (options.type) where.type = options.type;
-    if (options.category) where.category = options.category;
+    // Map frontend display values to database enum values for filtering
+    if (options.type) {
+      where.type = mapAccountTypeToDatabase(options.type) || options.type;
+    }
+    if (options.category) {
+      where.category = mapAccountCategoryToDatabase(options.category) || options.category;
+    }
     if (options.isActive !== undefined) where.isActive = options.isActive;
     if (options.parentId !== undefined) where.parentId = options.parentId;
     if (options.search) {

@@ -455,4 +455,38 @@ router.delete(
   }
 );
 
+/**
+ * @route   GET /api/customers/next-code
+ * @desc    Get the next available customer code
+ * @access  Private
+ */
+router.get("/next-code", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company ID is required",
+        code: "MISSING_COMPANY_ID",
+      });
+    }
+
+    const nextCode = await customerService.getNextCustomerCode(companyId);
+
+    res.json({
+      success: true,
+      message: "Next customer code retrieved successfully",
+      data: { nextCode },
+    });
+  } catch (error: any) {
+    console.error("Error getting next customer code:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      code: "INTERNAL_ERROR",
+      error: error.message,
+    });
+  }
+});
+
 export default router;

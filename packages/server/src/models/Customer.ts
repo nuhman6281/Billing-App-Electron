@@ -588,4 +588,36 @@ export class CustomerService {
       },
     });
   }
+
+  /**
+   * Get the next available customer code
+   */
+  async getNextCustomerCode(companyId: string): Promise<string> {
+    const lastCustomer = await this.prisma.customer.findFirst({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+      orderBy: {
+        code: 'desc',
+      },
+      select: {
+        code: true,
+      },
+    });
+
+    if (!lastCustomer) {
+      return "CUST001";
+    }
+
+    // Extract the numeric part and increment
+    const match = lastCustomer.code.match(/^CUST(\d+)$/);
+    if (match) {
+      const nextNumber = parseInt(match[1]) + 1;
+      return `CUST${nextNumber.toString().padStart(3, '0')}`;
+    }
+
+    // If the pattern doesn't match, return a default
+    return "CUST001";
+  }
 }
