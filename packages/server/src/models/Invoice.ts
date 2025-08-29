@@ -19,6 +19,7 @@ export interface CreateInvoiceInput {
 }
 
 export interface CreateInvoiceItemInput {
+  itemId?: string; // Optional link to inventory item
   description: string;
   quantity: Decimal;
   unitPrice: Decimal;
@@ -156,6 +157,10 @@ export class InvoiceService {
           tx.invoiceItem.create({
             data: {
               invoiceId: invoice.id,
+              itemId: item.itemId || null,
+              companyId: invoice.companyId,
+              createdBy: invoice.createdBy,
+              updatedBy: invoice.createdBy, // Set updatedBy to same as createdBy for new records
               description: item.description,
               quantity: item.quantity,
               unitPrice: item.unitPrice,

@@ -151,6 +151,82 @@ router.put("/:id", authenticateToken, async (req: AuthenticatedRequest, res) => 
   }
 });
 
+// Update payment status
+router.patch("/:id/status", authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { companyId } = req.user!;
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "Status is required",
+        code: "MISSING_STATUS",
+      });
+    }
+
+    const payment = await prisma.payment.update({
+      where: { id, companyId },
+      data: { status },
+      include: {
+        invoice: true,
+        bill: true,
+        vendor: true,
+        customer: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Payment status updated successfully",
+      data: payment,
+    });
+  } catch (error) {
+    console.error("Error updating payment status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update payment status",
+      code: "INTERNAL_ERROR",
+    });
+  }
+});
+
+// Reconcile payment
+router.post("/:id/reconcile", authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { companyId } = req.user!;
+    const { id } = req.params;
+
+    const payment = await prisma.payment.update({
+      where: { id, companyId },
+      data: {
+        reconciled: true,
+        reconciledAt: new Date(),
+      },
+      include: {
+        invoice: true,
+        bill: true,
+        vendor: true,
+        customer: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Payment reconciled successfully",
+      data: payment,
+    });
+  } catch (error) {
+    console.error("Error reconciling payment:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to reconcile payment",
+      code: "INTERNAL_ERROR",
+    });
+  }
+});
+
 // Delete payment
 router.delete("/:id", authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {

@@ -8,22 +8,19 @@ import { api, API_ENDPOINTS } from "../config/api";
 
 interface JournalEntry {
   id: string;
-  entryNumber: string;
+  number: string; // Changed from entryNumber to match backend
   date: string;
   reference: string;
   description: string;
   status: "DRAFT" | "POSTED" | "VOIDED";
-  totalDebit: string;
-  totalCredit: string;
-  isBalanced: boolean;
   postedAt?: string;
   postedBy?: string;
-  items: JournalEntryItem[];
+  lines: JournalEntryLine[]; // Changed from items to lines
   createdAt: string;
   updatedAt: string;
 }
 
-interface JournalEntryItem {
+interface JournalEntryLine {
   id?: string;
   accountId: string;
   accountCode?: string;
@@ -69,10 +66,10 @@ export default function JournalEntries() {
     date: new Date().toISOString().split("T")[0],
     reference: "",
     description: "",
-    items: [
+    lines: [
       { accountId: "", debit: "", credit: "", description: "" },
       { accountId: "", debit: "", credit: "", description: "" },
-    ] as JournalEntryItem[],
+    ] as JournalEntryLine[],
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
@@ -155,15 +152,15 @@ export default function JournalEntries() {
     if (!formData.description) errors.push("Description is required");
 
     // Check if items have accounts
-    formData.items.forEach((item, index) => {
+    formData.lines.forEach((item, index) => {
       if (!item.accountId) {
         errors.push(`Account is required for line ${index + 1}`);
       }
     });
 
     // Check if at least one debit and one credit
-    const hasDebit = formData.items.some((item) => parseFloat(item.debit) > 0);
-    const hasCredit = formData.items.some(
+    const hasDebit = formData.lines.some((item) => parseFloat(item.debit) > 0);
+    const hasCredit = formData.lines.some(
       (item) => parseFloat(item.credit) > 0
     );
 
@@ -171,11 +168,11 @@ export default function JournalEntries() {
     if (!hasCredit) errors.push("At least one credit amount is required");
 
     // Check if balanced
-    const totalDebit = formData.items.reduce(
+    const totalDebit = formData.lines.reduce(
       (sum, item) => sum + parseFloat(item.debit || "0"),
       0
     );
-    const totalCredit = formData.items.reduce(
+    const totalCredit = formData.lines.reduce(
       (sum, item) => sum + parseFloat(item.credit || "0"),
       0
     );
@@ -204,12 +201,16 @@ export default function JournalEntries() {
 
       if (editingEntry) {
         await api.put<any>(
-          `/journal-entries/${editingEntry.id}`,
+          API_ENDPOINTS.JOURNAL_ENTRIES.UPDATE.replace(":id", editingEntry.id),
           formData,
           token
         );
       } else {
-        await api.post<any>("/journal-entries", formData, token);
+        await api.post<any>(
+          API_ENDPOINTS.JOURNAL_ENTRIES.CREATE,
+          formData,
+          token
+        );
       }
 
       setIsModalOpen(false);
@@ -239,7 +240,11 @@ export default function JournalEntries() {
         return;
       }
 
-      await api.post<any>(`/journal-entries/${entryId}/post`, {}, token);
+      await api.post<any>(
+        API_ENDPOINTS.JOURNAL_ENTRIES.POST.replace(":id", entryId),
+        {},
+        token
+      );
       fetchEntries();
       fetchStats();
     } catch (error) {
@@ -264,7 +269,11 @@ export default function JournalEntries() {
         return;
       }
 
-      await api.post<any>(`/journal-entries/${entryId}/void`, {}, token);
+      await api.post<any>(
+        API_ENDPOINTS.JOURNAL_ENTRIES.VOID.replace(":id", entryId),
+        {},
+        token
+      );
       fetchEntries();
       fetchStats();
     } catch (error) {
@@ -283,7 +292,10 @@ export default function JournalEntries() {
         return;
       }
 
-      await api.delete<any>(`/journal-entries/${entryId}`, token);
+      await api.delete<any>(
+        API_ENDPOINTS.JOURNAL_ENTRIES.DELETE.replace(":id", entryId),
+        token
+      );
       fetchEntries();
       fetchStats();
     } catch (error) {
@@ -298,7 +310,7 @@ export default function JournalEntries() {
       date: entry.date,
       reference: entry.reference,
       description: entry.description,
-      items: entry.items.map((item) => ({
+      lines: entry.lines.map((item) => ({
         accountId: item.accountId,
         debit: item.debit,
         credit: item.credit,
@@ -313,7 +325,7 @@ export default function JournalEntries() {
       date: new Date().toISOString().split("T")[0],
       reference: "",
       description: "",
-      items: [
+      lines: [
         { accountId: "", debit: "", credit: "", description: "" },
         { accountId: "", debit: "", credit: "", description: "" },
       ],
@@ -324,30 +336,30 @@ export default function JournalEntries() {
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [
-        ...formData.items,
+      lines: [
+        ...formData.lines,
         { accountId: "", debit: "", credit: "", description: "" },
       ],
     });
   };
 
   const removeItem = (index: number) => {
-    if (formData.items.length > 2) {
+    if (formData.lines.length > 2) {
       setFormData({
         ...formData,
-        items: formData.items.filter((_, i) => i !== index),
+        lines: formData.lines.filter((_, i) => i !== index),
       });
     }
   };
 
   const updateItem = (
     index: number,
-    field: keyof JournalEntryItem,
+    field: keyof JournalEntryLine,
     value: string
   ) => {
-    const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setFormData({ ...formData, items: newItems });
+    const newLines = [...formData.lines];
+    newLines[index] = { ...newLines[index], [field]: value };
+    setFormData({ ...formData, lines: newLines });
   };
 
   const getStatusBadge = (status: string) => {
@@ -364,7 +376,7 @@ export default function JournalEntries() {
 
   const filteredEntries = entries.filter((entry) => {
     const matchesSearch =
-      entry.entryNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entry.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = !filterStatus || entry.status === filterStatus;
@@ -509,13 +521,27 @@ export default function JournalEntries() {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       <span className="font-mono text-sm text-gray-600">
-                        {entry.entryNumber}
+                        {entry.number}
                       </span>
                       <span className="font-medium">{entry.reference}</span>
                       {getStatusBadge(entry.status)}
-                      {!entry.isBalanced && (
-                        <Badge variant="destructive">Unbalanced</Badge>
-                      )}
+                      {(() => {
+                        const totalDebit = entry.lines.reduce(
+                          (sum, item) => sum + parseFloat(item.debit || "0"),
+                          0
+                        );
+                        const totalCredit = entry.lines.reduce(
+                          (sum, item) => sum + parseFloat(item.credit || "0"),
+                          0
+                        );
+                        const isBalanced =
+                          Math.abs(totalDebit - totalCredit) < 0.01;
+                        return (
+                          !isBalanced && (
+                            <Badge variant="destructive">Unbalanced</Badge>
+                          )
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-600">
@@ -569,7 +595,7 @@ export default function JournalEntries() {
                     <div>
                       <h4 className="font-medium text-gray-900 mb-2">Debits</h4>
                       <div className="space-y-1">
-                        {entry.items
+                        {entry.lines
                           .filter((item) => parseFloat(item.debit) > 0)
                           .map((item) => (
                             <div
@@ -591,7 +617,7 @@ export default function JournalEntries() {
                         Credits
                       </h4>
                       <div className="space-y-1">
-                        {entry.items
+                        {entry.lines
                           .filter((item) => parseFloat(item.credit) > 0)
                           .map((item) => (
                             <div
@@ -613,11 +639,24 @@ export default function JournalEntries() {
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="flex justify-between text-sm font-medium">
                       <span>
-                        Total Debits: ${parseFloat(entry.totalDebit).toFixed(2)}
+                        Total Debits: $
+                        {(() => {
+                          const total = entry.lines.reduce(
+                            (sum, item) => sum + parseFloat(item.debit || "0"),
+                            0
+                          );
+                          return total.toFixed(2);
+                        })()}
                       </span>
                       <span>
                         Total Credits: $
-                        {parseFloat(entry.totalCredit).toFixed(2)}
+                        {(() => {
+                          const total = entry.lines.reduce(
+                            (sum, item) => sum + parseFloat(item.credit || "0"),
+                            0
+                          );
+                          return total.toFixed(2);
+                        })()}
                       </span>
                     </div>
                   </div>
@@ -729,7 +768,7 @@ export default function JournalEntries() {
                 </div>
 
                 <div className="space-y-3">
-                  {formData.items.map((item, index) => (
+                  {formData.lines.map((item, index) => (
                     <div
                       key={index}
                       className="grid grid-cols-12 gap-3 items-center"
@@ -793,7 +832,7 @@ export default function JournalEntries() {
                       </div>
 
                       <div className="col-span-1">
-                        {formData.items.length > 2 && (
+                        {formData.lines.length > 2 && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -815,7 +854,7 @@ export default function JournalEntries() {
                       <span className="font-medium">Total Debits: </span>
                       <span className="font-mono text-green-600">
                         $
-                        {formData.items
+                        {formData.lines
                           .reduce(
                             (sum, item) => sum + parseFloat(item.debit || "0"),
                             0
@@ -827,7 +866,7 @@ export default function JournalEntries() {
                       <span className="font-medium">Total Credits: </span>
                       <span className="font-mono text-blue-600">
                         $
-                        {formData.items
+                        {formData.lines
                           .reduce(
                             (sum, item) => sum + parseFloat(item.credit || "0"),
                             0
@@ -838,11 +877,11 @@ export default function JournalEntries() {
                   </div>
 
                   {Math.abs(
-                    formData.items.reduce(
+                    formData.lines.reduce(
                       (sum, item) => sum + parseFloat(item.debit || "0"),
                       0
                     ) -
-                      formData.items.reduce(
+                      formData.lines.reduce(
                         (sum, item) => sum + parseFloat(item.credit || "0"),
                         0
                       )

@@ -25,6 +25,9 @@ import roleRoutes from "./routes/roles";
 import projectRoutes from "./routes/projects";
 import dataRoutes from "./routes/data";
 import settingsRoutes from "./routes/settings";
+import itemRoutes from "./routes/items";
+import itemCategoryRoutes from "./routes/itemCategories";
+import taxCodeRoutes from "./routes/taxCodes";
 
 const app = express();
 
@@ -90,6 +93,9 @@ app.use("/api/roles", roleRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/data", dataRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/items", itemRoutes);
+app.use("/api/item-categories", itemCategoryRoutes);
+app.use("/api/tax-codes", taxCodeRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

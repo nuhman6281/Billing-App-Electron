@@ -105,6 +105,10 @@ model Company {
   projects   Project[]
   costCenters CostCenter[]
   taxCodes   TaxCode[]
+  items      Item[]
+  itemCategories ItemCategory[]
+  invoiceItems InvoiceItem[]
+  billItems  BillItem[]
   securitySettings CompanySecuritySettings?
   dataBackups DataBackup[]
 
@@ -156,6 +160,7 @@ model ChartOfAccount {
   parent      ChartOfAccount? @relation("AccountHierarchy", fields: [parentId], references: [id])
   children    ChartOfAccount[] @relation("AccountHierarchy")
   journalEntryLines JournalEntryLine[]
+  taxCodes   TaxCode[]
 
   @@map("chart_of_accounts")
 }
@@ -226,6 +231,7 @@ model Invoice {
   total       Decimal  @default(0) @db.Decimal(15, 2)
   notes       String?
   terms       String?
+  taxCodeId   String?
   companyId   String
   createdBy   String
   createdAt   DateTime @default(now())
@@ -240,6 +246,7 @@ model Invoice {
   user        User    @relation(fields: [createdBy], references: [id])
   items       InvoiceItem[]
   payments    Payment[]
+  taxCode     TaxCode? @relation(fields: [taxCodeId], references: [id])
 
   @@map("invoices")
 }
@@ -247,6 +254,7 @@ model Invoice {
 model InvoiceItem {
   id          String   @id @default(cuid())
   invoiceId   String
+  itemId      String?
   description String
   quantity    Decimal  @default(1) @db.Decimal(10, 3)
   unitPrice   Decimal  @default(0) @db.Decimal(15, 2)
@@ -255,11 +263,24 @@ model InvoiceItem {
   discountRate Decimal @default(0) @db.Decimal(5, 2)
   discountAmount Decimal @default(0) @db.Decimal(15, 2)
   total       Decimal  @default(0) @db.Decimal(15, 2)
+  
+  // Tax Details
+  cgstAmount  Decimal  @default(0) @db.Decimal(15, 2)
+  sgstAmount  Decimal  @default(0) @db.Decimal(15, 2)
+  igstAmount  Decimal  @default(0) @db.Decimal(15, 2)
+  
+  // Metadata
+  companyId   String
+  createdBy   String
+  updatedBy   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  version     Int      @default(1)
 
   // Relations
   invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item        Item?   @relation(fields: [itemId], references: [id])
+  company     Company @relation(fields: [companyId], references: [id])
 
   @@map("invoice_items")
 }
@@ -277,6 +298,7 @@ model Bill {
   total       Decimal  @default(0) @db.Decimal(15, 2)
   notes       String?
   terms       String?
+  taxCodeId   String?
   companyId   String
   createdBy   String
   createdAt   DateTime @default(now())
@@ -290,6 +312,7 @@ model Bill {
   user        User    @relation(fields: [createdBy], references: [id])
   items       BillItem[]
   payments    Payment[]
+  taxCode     TaxCode? @relation(fields: [taxCodeId], references: [id])
 
   @@map("bills")
 }
@@ -297,6 +320,7 @@ model Bill {
 model BillItem {
   id          String   @id @default(cuid())
   billId      String
+  itemId      String?
   description String
   quantity    Decimal  @default(1) @db.Decimal(10, 3)
   unitPrice   Decimal  @default(0) @db.Decimal(15, 2)
@@ -305,11 +329,24 @@ model BillItem {
   discountRate Decimal @default(0) @db.Decimal(5, 2)
   discountAmount Decimal @default(0) @db.Decimal(15, 2)
   total       Decimal  @default(0) @db.Decimal(15, 2)
+  
+  // Tax Details
+  cgstAmount  Decimal  @default(0) @db.Decimal(15, 2)
+  sgstAmount  Decimal  @default(0) @db.Decimal(15, 2)
+  igstAmount  Decimal  @default(0) @db.Decimal(15, 2)
+  
+  // Metadata
+  companyId   String
+  createdBy   String
+  updatedBy   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  version     Int      @default(1)
 
   // Relations
   bill        Bill    @relation(fields: [billId], references: [id], onDelete: Cascade)
+  item        Item?   @relation(fields: [itemId], references: [id])
+  company     Company @relation(fields: [companyId], references: [id])
 
   @@map("bill_items")
 }
@@ -474,20 +511,56 @@ model CostCenter {
 // ============================================================================
 
 model TaxCode {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  description String?
-  rate        Decimal  @db.Decimal(10, 4)
-  isActive    Boolean  @default(true)
-  companyId   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String
-  updatedBy   String
+  id                String    @id @default(cuid())
+  code              String    @unique
+  name              String
+  description       String?
+  taxType           TaxType   @default(GST)
+  rate              Decimal   @db.Decimal(5, 2)
+  isCompound        Boolean   @default(false)
+  isActive          Boolean   @default(true)
+  
+  // GST Specific (India)
+  gstRate           Decimal   @db.Decimal(5, 2) @default(0)
+  cgstRate          Decimal   @db.Decimal(5, 2) @default(0)
+  sgstRate          Decimal   @db.Decimal(5, 2) @default(0)
+  igstRate          Decimal   @db.Decimal(5, 2) @default(0)
+  hsnCode           String?
+  
+  // VAT Specific
+  vatRate           Decimal   @db.Decimal(5, 2) @default(0)
+  inputVatRate      Decimal   @db.Decimal(5, 2) @default(0)
+  outputVatRate     Decimal   @db.Decimal(5, 2) @default(0)
+  
+  // Sales Tax Specific
+  salesTaxRate      Decimal   @db.Decimal(5, 2) @default(0)
+  stateTaxRate      Decimal   @db.Decimal(5, 2) @default(0)
+  localTaxRate      Decimal   @db.Decimal(5, 2) @default(0)
+  
+  // Additional Fields
+  effectiveFrom     DateTime  @default(now())
+  effectiveTo       DateTime?
+  isRecoverable     Boolean   @default(true)
+  accountId         String?
+  reverseCharge     Boolean   @default(false)
+  thresholdAmount   Decimal   @db.Decimal(10, 2) @default(0)
+  exemptionLimit    Decimal   @db.Decimal(10, 2) @default(0)
+  
+    // Metadata
+  companyId         String
+  createdBy         String
+  updatedBy         String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  isDeleted         Boolean   @default(false)
+  version           Int       @default(1)
 
   // Relations
-  company     Company  @relation(fields: [companyId], references: [id])
+  company           Company   @relation(fields: [companyId], references: [id])
+  account           ChartOfAccount? @relation(fields: [accountId], references: [id])
+  items             Item[]
+  invoices          Invoice[]
+  bills             Bill[]
 
   @@map("tax_codes")
 }
@@ -558,6 +631,122 @@ model DataBackup {
   @@map("data_backups")
 }
 
+// ============================================================================
+// ITEM MANAGEMENT
+// ============================================================================
+
+model Item {
+  id                String    @id @default(cuid())
+  code              String    @unique
+  name              String
+  description       String?
+  sku               String?   @unique
+  barcode           String?   @unique
+  itemType          ItemType  @default(PRODUCT)
+  categoryId        String?
+  unitOfMeasure     String    @default("PCS")
+  
+  // Pricing
+  costPrice         Decimal   @db.Decimal(10, 2) @default(0)
+  sellingPrice      Decimal   @db.Decimal(10, 2) @default(0)
+  wholesalePrice    Decimal?  @db.Decimal(10, 2)
+  retailPrice       Decimal?  @db.Decimal(10, 2)
+  
+  // Stock Management
+  currentStock      Decimal   @db.Decimal(10, 2) @default(0)
+  reorderPoint      Decimal   @db.Decimal(10, 2) @default(0)
+  maxStock          Decimal?  @db.Decimal(10, 2)
+  minStock          Decimal?  @db.Decimal(10, 2)
+  
+  // Tax Information
+  taxCodeId         String?
+  isTaxable         Boolean   @default(true)
+  taxRate           Decimal   @db.Decimal(5, 2) @default(0)
+  
+  // GST Specific (India)
+  hsnCode           String?
+  gstRate           Decimal   @db.Decimal(5, 2) @default(0)
+  cgstRate          Decimal   @db.Decimal(5, 2) @default(0)
+  sgstRate          Decimal   @db.Decimal(5, 2) @default(0)
+  igstRate          Decimal   @db.Decimal(5, 2) @default(0)
+  
+  // Dimensions & Weight
+  length            Decimal?  @db.Decimal(8, 2)
+  width             Decimal?  @db.Decimal(8, 2)
+  height            Decimal?  @db.Decimal(8, 2)
+  weight            Decimal?  @db.Decimal(8, 2)
+  weightUnit        String    @default("KG")
+  
+  // Additional Fields
+  brand             String?
+  model             String?
+  manufacturer      String?
+  countryOfOrigin   String?
+  expiryDate        DateTime?
+  batchNumber       String?
+  
+  // Status
+  isActive          Boolean   @default(true)
+  isDeleted         Boolean   @default(false)
+  
+  // Metadata
+  companyId         String
+  createdBy         String
+  updatedBy         String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  version           Int       @default(1)
+  
+  // Relations
+  company           Company   @relation(fields: [companyId], references: [id])
+  category          ItemCategory? @relation(fields: [categoryId], references: [id])
+  taxCode           TaxCode?  @relation(fields: [taxCodeId], references: [id])
+  invoiceItems      InvoiceItem[]
+  billItems         BillItem[]
+  
+  @@map("items")
+}
+
+model ItemCategory {
+  id                String    @id @default(cuid())
+  name              String
+  description       String?
+  code              String?   @unique
+  parentId          String?
+  color             String?
+  icon              String?
+  sortOrder         Int       @default(0)
+  
+  // Tax Rates (can be overridden by individual items)
+  taxRate           Decimal   @db.Decimal(5, 2) @default(0)
+  gstRate           Decimal   @db.Decimal(5, 2) @default(0)
+  cgstRate          Decimal   @db.Decimal(5, 2) @default(0)
+  sgstRate          Decimal   @db.Decimal(5, 2) @default(0)
+  igstRate          Decimal   @db.Decimal(5, 2) @default(0)
+  hsnCode           String?
+  
+  // Status
+  isActive          Boolean   @default(true)
+  isDeleted         Boolean   @default(false)
+  
+  // Metadata
+  companyId         String
+  createdBy         String
+  updatedBy         String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  version           Int       @default(1)
+  
+  // Relations
+  company           Company   @relation(fields: [companyId], references: [id])
+  parent            ItemCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children          ItemCategory[] @relation("CategoryHierarchy")
+  items             Item[]
+  
+  @@map("item_categories")
+}
+
+// ============================================================================
 // ENUMS
 // ============================================================================
 
@@ -657,4 +846,22 @@ enum ProjectStatus {
   ON_HOLD
   COMPLETED
   CANCELLED
+}
+
+enum ItemType {
+  PRODUCT
+  SERVICE
+  MATERIAL
+  EQUIPMENT
+  SOFTWARE
+  OTHER
+}
+
+enum TaxType {
+  GST
+  VAT
+  SALES_TAX
+  EXCISE
+  CUSTOMS
+  OTHER
 }

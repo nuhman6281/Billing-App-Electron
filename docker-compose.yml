@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # PostgreSQL Database
@@ -44,174 +44,178 @@ services:
       timeout: 10s
       retries: 3
 
+  # ============================================================================
+  # FUTURE: Uncomment these services when Docker build issues are resolved
+  # ============================================================================
+
   # Application Server
-  server:
-    build:
-      context: ./packages/server
-      dockerfile: Dockerfile
-      target: development
-    container_name: billing_app_server
-    restart: unless-stopped
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://billing_user:billing_password@postgres:5432/accounting
-      REDIS_URL: redis://:redis_password@redis:6379
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      JWT_REFRESH_SECRET: your-refresh-secret-change-in-production
-      PORT: 3001
-      CORS_ORIGIN: http://localhost:3000
-    ports:
-      - "3001:3001"
-    volumes:
-      - ./packages/server:/app
-      - /app/node_modules
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - billing_app_network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # server:
+  #   build:
+  #     context: ./packages/server
+  #     dockerfile: Dockerfile
+  #     target: development
+  #   container_name: billing_app_server
+  #   restart: unless-stopped
+  #   environment:
+  #     NODE_ENV: development
+  #     DATABASE_URL: postgresql://billing_user:billing_password@postgres:5432/accounting
+  #     REDIS_URL: redis://:redis_password@redis:6379
+  #     JWT_SECRET: your-super-secret-jwt-key-change-in-production
+  #     JWT_REFRESH_SECRET: your-refresh-secret-change-in-production
+  #     PORT: 3001
+  #     CORS_ORIGIN: http://localhost:3000
+  #   ports:
+  #     - "3001:3001"
+  #   volumes:
+  #     - ./packages/server:/app
+  #     - /app/node_modules
+  #     - ./uploads:/app/uploads
+  #     - ./logs:/app/logs
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - billing_app_network
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   # Desktop Application (Electron)
-  desktop:
-    build:
-      context: ./packages/desktop
-      dockerfile: Dockerfile
-      target: development
-    container_name: billing_app_desktop
-    restart: unless-stopped
-    environment:
-      NODE_ENV: development
-      API_BASE_URL: http://localhost:3001
-      DISPLAY: ${DISPLAY}
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./packages/desktop:/app
-      - /app/node_modules
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    depends_on:
-      server:
-        condition: service_healthy
-    networks:
-      - billing_app_network
-    privileged: true
+  # desktop:
+  #   build:
+  #     context: ./packages/desktop
+  #     dockerfile: Dockerfile
+  #     target: development
+  #   container_name: billing_app_desktop
+  #   restart: unless-stopped
+  #   environment:
+  #     NODE_ENV: development
+  #     API_BASE_URL: http://localhost:3001
+  #     DISPLAY: ${DISPLAY}
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./packages/desktop:/app
+  #     - /app/node_modules
+  #     - /tmp/.X11-unix:/tmp/.X11-unix:rw
+  #   depends_on:
+  #     server:
+  #       condition: service_healthy
+  #   networks:
+  #     - billing_app_network
+  #   privileged: true
 
   # Nginx Reverse Proxy (Optional)
-  nginx:
-    image: nginx:alpine
-    container_name: billing_app_nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d
-      - ./docker/nginx/ssl:/etc/nginx/ssl
-      - ./uploads:/var/www/uploads
-    depends_on:
-      - server
-      - desktop
-    networks:
-      - billing_app_network
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: billing_app_nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+  #     - ./docker/nginx/conf.d:/etc/nginx/conf.d
+  #     - ./docker/nginx/ssl:/etc/nginx/ssl
+  #     - ./uploads:/var/www/uploads
+  #   depends_on:
+  #     - server
+  #     - desktop
+  #   networks:
+  #     - billing_app_network
 
   # pgAdmin (Database Management)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: billing_app_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@billingapp.com
-      PGADMIN_DEFAULT_PASSWORD: admin_password
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      - postgres
-    networks:
-      - billing_app_network
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: billing_app_pgadmin
+  #   restart: unless-stopped
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@billingapp.com
+  #     PGADMIN_DEFAULT_PASSWORD: admin_password
+  #     PGADMIN_CONFIG_SERVER_MODE: 'False'
+  #   ports:
+  #     - "5050:80"
+  #   volumes:
+  #     - pgadmin_data:/var/lib/pgadmin
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - billing_app_network
 
   # Redis Commander (Redis Management)
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: billing_app_redis_commander
-    restart: unless-stopped
-    environment:
-      REDIS_HOSTS: local:redis:6379:0:redis_password
-    ports:
-      - "8081:8081"
-    depends_on:
-      - redis
-    networks:
-      - billing_app_network
+  # redis-commander:
+  #   image: rediscommander/redis-commander:latest
+  #   container_name: billing_app_redis_commander
+  #   restart: unless-stopped
+  #   environment:
+  #     REDIS_HOSTS: local:redis:6379:0:redis_password
+  #   ports:
+  #     - "8081:8081"
+  #   depends_on:
+  #     - redis
+  #   networks:
+  #     - billing_app_network
 
   # MailHog (Email Testing)
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: billing_app_mailhog
-    restart: unless-stopped
-    ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI
-    networks:
-      - billing_app_network
+  # mailhog:
+  #   image: mailhog/mailhog:latest
+  #   container_name: billing_app_mailhog
+  #   restart: unless-stopped
+  #   ports:
+  #     - "1025:1025"  # SMTP
+  #     - "8025:8025"  # Web UI
+  #   networks:
+  #     - billing_app_network
 
   # Elasticsearch (Search Engine)
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: billing_app_elasticsearch
-    restart: unless-stopped
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    networks:
-      - billing_app_network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+  #   container_name: billing_app_elasticsearch
+  #   restart: unless-stopped
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   ports:
+  #     - "9200:9200"
+  #   volumes:
+  #     - elasticsearch_data:/usr/share/elasticsearch/data
+  #   networks:
+  #     - billing_app_network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   # Kibana (Elasticsearch Management)
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.11.0
-    container_name: billing_app_kibana
-    restart: unless-stopped
-    environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-    ports:
-      - "5601:5601"
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    networks:
-      - billing_app_network
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:8.11.0
+  #   container_name: billing_app_kibana
+  #   restart: unless-stopped
+  #   environment:
+  #     ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+  #   ports:
+  #     - "5601:5601"
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+  #   networks:
+  #     - billing_app_network
 
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
-  pgadmin_data:
-    driver: local
-  elasticsearch_data:
-    driver: local
+  # pgadmin_data:
+  #   driver: local
+  # elasticsearch_data:
+  #   driver: local
 
 networks:
   billing_app_network:

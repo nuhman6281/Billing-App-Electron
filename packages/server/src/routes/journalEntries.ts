@@ -557,39 +557,4 @@ router.delete(
   }
 );
 
-/**
- * @route   GET /api/journal-entries/stats
- * @desc    Get journal entry statistics for the company
- * @access  Private
- */
-router.get("/stats", async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const companyId = req.user?.companyId;
-
-    if (!companyId) {
-      return res.status(400).json({
-        success: false,
-        message: "Company ID is required",
-        code: "MISSING_COMPANY_ID",
-      });
-    }
-
-    const stats = await journalEntryService.getJournalEntryStats(companyId);
-
-    res.json({
-      success: true,
-      message: "Journal entry statistics retrieved successfully",
-      data: stats,
-    });
-  } catch (error: any) {
-    console.error("Error retrieving journal entry statistics:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      code: "INTERNAL_ERROR",
-      error: error.message,
-    });
-  }
-});
-
 export default router;

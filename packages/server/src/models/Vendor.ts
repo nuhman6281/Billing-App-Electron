@@ -587,4 +587,39 @@ export class VendorService {
       },
     });
   }
+
+  /**
+   * Get next available vendor code
+   */
+  async getNextVendorCode(companyId: string): Promise<string> {
+    // Get the last vendor code for this company
+    const lastVendor = await this.prisma.vendor.findFirst({
+      where: {
+        companyId,
+        isDeleted: false,
+      },
+      orderBy: {
+        code: 'desc',
+      },
+      select: {
+        code: true,
+      },
+    });
+
+    if (!lastVendor) {
+      // If no vendors exist, start with V001
+      return 'V001';
+    }
+
+    // Extract the numeric part and increment
+    const match = lastVendor.code.match(/^V(\d+)$/);
+    if (match) {
+      const nextNumber = parseInt(match[1]) + 1;
+      return `V${nextNumber.toString().padStart(3, '0')}`;
+    }
+
+    // If the code format is unexpected, generate a new one
+    const totalVendors = await this.getCount(companyId);
+    return `V${(totalVendors + 1).toString().padStart(3, '0')}`;
+  }
 }

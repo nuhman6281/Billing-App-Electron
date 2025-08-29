@@ -12,9 +12,13 @@ import { Payments } from "./pages/Payments";
 import { Reports } from "./pages/Reports";
 import { DataImportExport } from "./pages/DataImportExport";
 import { AdvancedUserManagement } from "./pages/AdvancedUserManagement";
+import Items from "./components/Items";
+import ItemCategories from "./components/ItemCategories";
+import TaxCodes from "./components/TaxCodes";
 import { useAppStore } from "./stores/appStore";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AuthenticationWrapper } from "./components/AuthenticationWrapper";
+import { ToastProvider } from "./components/ui/ToastContainer";
 
 // Extend Window interface for electronAPI
 declare global {
@@ -120,6 +124,9 @@ function AppContent(): React.ReactElement {
             path="/advanced-user-management"
             element={<AdvancedUserManagement />}
           />
+          <Route path="/items" element={<Items />} />
+          <Route path="/item-categories" element={<ItemCategories />} />
+          <Route path="/tax-codes" element={<TaxCodes />} />
           <Route path="/" element={<Dashboard />} />
         </Routes>
       </Layout>
@@ -130,7 +137,9 @@ function AppContent(): React.ReactElement {
 function App(): React.ReactElement {
   return (
     <AuthProvider>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </AuthProvider>
   );
 }

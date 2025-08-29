@@ -41,7 +41,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
     });
 
     // Map database enum values back to frontend display values
-    const mappedProjects = result.projects.map(project => ({
+    const mappedProjects = result.projects.map((project) => ({
       ...project,
       status: mapProjectStatusToFrontend(project.status) || project.status,
     }));
@@ -126,172 +126,191 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
  * @desc    Create a new project
  * @access  Private
  */
-router.post("/", requireRole(["ADMIN", "ACCOUNTANT", "MANAGER"]), async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const companyId = req.user?.companyId;
-    const { userId } = req.user!;
+router.post(
+  "/",
+  requireRole(["ADMIN", "ACCOUNTANT", "MANAGER"]),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const companyId = req.user?.companyId;
+      const { userId } = req.user!;
 
-    if (!companyId) {
-      return res.status(400).json({
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: "Company ID is required",
+          code: "MISSING_COMPANY_ID",
+        });
+      }
+
+      const projectData = {
+        ...req.body,
+        companyId,
+        createdBy: userId,
+        updatedBy: userId,
+      };
+
+      const project = await projectService.createProject(projectData);
+
+      res.status(201).json({
+        success: true,
+        message: "Project created successfully",
+        data: project,
+      });
+    } catch (error: any) {
+      console.error("Error creating project:", error);
+      res.status(500).json({
         success: false,
-        message: "Company ID is required",
-        code: "MISSING_COMPANY_ID",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        error: error.message,
       });
     }
-
-    const projectData = {
-      ...req.body,
-      companyId,
-      createdBy: userId,
-      updatedBy: userId,
-    };
-
-    const project = await projectService.createProject(projectData);
-
-    res.status(201).json({
-      success: true,
-      message: "Project created successfully",
-      data: project,
-    });
-  } catch (error: any) {
-    console.error("Error creating project:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      code: "INTERNAL_ERROR",
-      error: error.message,
-    });
   }
-});
+);
 
 /**
  * @route   PUT /api/projects/:id
  * @desc    Update an existing project
  * @access  Private
  */
-router.put("/:id", requireRole(["ADMIN", "ACCOUNTANT", "MANAGER"]), async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const companyId = req.user?.companyId;
-    const { id } = req.params;
-    const { userId } = req.user!;
+router.put(
+  "/:id",
+  requireRole(["ADMIN", "ACCOUNTANT", "MANAGER"]),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const companyId = req.user?.companyId;
+      const { id } = req.params;
+      const { userId } = req.user!;
 
-    if (!companyId) {
-      return res.status(400).json({
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: "Company ID is required",
+          code: "MISSING_COMPANY_ID",
+        });
+      }
+
+      const updateData = {
+        ...req.body,
+        updatedBy: userId,
+      };
+
+      const project = await projectService.updateProject(
+        id,
+        companyId,
+        updateData
+      );
+
+      if (!project) {
+        return res.status(404).json({
+          success: false,
+          message: "Project not found",
+          code: "PROJECT_NOT_FOUND",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Project updated successfully",
+        data: project,
+      });
+    } catch (error: any) {
+      console.error("Error updating project:", error);
+      res.status(500).json({
         success: false,
-        message: "Company ID is required",
-        code: "MISSING_COMPANY_ID",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        error: error.message,
       });
     }
-
-    const updateData = {
-      ...req.body,
-      updatedBy: userId,
-    };
-
-    const project = await projectService.updateProject(id, companyId, updateData);
-
-    if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: "Project not found",
-        code: "PROJECT_NOT_FOUND",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Project updated successfully",
-      data: project,
-    });
-  } catch (error: any) {
-    console.error("Error updating project:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      code: "INTERNAL_ERROR",
-      error: error.message,
-    });
   }
-});
+);
 
 /**
  * @route   DELETE /api/projects/:id
  * @desc    Delete a project
  * @access  Private
  */
-router.delete("/:id", requireRole(["ADMIN", "ACCOUNTANT"]), async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const companyId = req.user?.companyId;
-    const { id } = req.params;
+router.delete(
+  "/:id",
+  requireRole(["ADMIN", "ACCOUNTANT"]),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const companyId = req.user?.companyId;
+      const { id } = req.params;
 
-    if (!companyId) {
-      return res.status(400).json({
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: "Company ID is required",
+          code: "MISSING_COMPANY_ID",
+        });
+      }
+
+      const success = await projectService.deleteProject(id, companyId);
+
+      if (!success) {
+        return res.status(404).json({
+          success: false,
+          message: "Project not found",
+          code: "PROJECT_NOT_FOUND",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Project deleted successfully",
+      });
+    } catch (error: any) {
+      console.error("Error deleting project:", error);
+      res.status(500).json({
         success: false,
-        message: "Company ID is required",
-        code: "MISSING_COMPANY_ID",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        error: error.message,
       });
     }
-
-    const success = await projectService.deleteProject(id, companyId);
-
-    if (!success) {
-      return res.status(404).json({
-        success: false,
-        message: "Project not found",
-        code: "PROJECT_NOT_FOUND",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Project deleted successfully",
-    });
-  } catch (error: any) {
-    console.error("Error deleting project:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      code: "INTERNAL_ERROR",
-      error: error.message,
-    });
   }
-});
+);
 
 /**
  * @route   GET /api/projects/:id/expenses
  * @desc    Get project expenses
  * @access  Private
  */
-router.get("/:id/expenses", async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const companyId = req.user?.companyId;
-    const { id } = req.params;
+router.get(
+  "/:id/expenses",
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const companyId = req.user?.companyId;
+      const { id } = req.params;
 
-    if (!companyId) {
-      return res.status(400).json({
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: "Company ID is required",
+          code: "MISSING_COMPANY_ID",
+        });
+      }
+
+      const expenses = await projectService.getProjectExpenses(id, companyId);
+
+      res.json({
+        success: true,
+        message: "Project expenses retrieved successfully",
+        data: expenses,
+      });
+    } catch (error: any) {
+      console.error("Error retrieving project expenses:", error);
+      res.status(500).json({
         success: false,
-        message: "Company ID is required",
-        code: "MISSING_COMPANY_ID",
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        error: error.message,
       });
     }
-
-    const expenses = await projectService.getProjectExpenses(id, companyId);
-
-    res.json({
-      success: true,
-      message: "Project expenses retrieved successfully",
-      data: expenses,
-    });
-  } catch (error: any) {
-    console.error("Error retrieving project expenses:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      code: "INTERNAL_ERROR",
-      error: error.message,
-    });
   }
-});
+);
 
 /**
  * @route   GET /api/projects/:id/time

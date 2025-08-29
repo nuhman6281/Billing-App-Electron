@@ -73,14 +73,14 @@ check_requirements() {
     fi
     
     # Check Docker Compose
-    if ! command_exists docker-compose; then
+    if ! command_exists docker compose; then
         if ! docker compose version >/dev/null 2>&1; then
             missing_commands+=("Docker Compose")
         else
             print_success "Docker Compose found"
         fi
     else
-        local compose_version=$(docker-compose --version | cut -d' ' -f3 | cut -d',' -f1)
+        local compose_version=$(docker compose --version | cut -d' ' -f3 | cut -d',' -f1)
         print_success "Docker Compose $compose_version found"
     fi
     
@@ -197,14 +197,14 @@ setup_database() {
     
     # Start PostgreSQL and Redis
     print_status "Starting database services..."
-    docker-compose up -d postgres redis
+    docker compose up -d postgres redis
     
     # Wait for services to be ready
     print_status "Waiting for services to be ready..."
     sleep 10
     
     # Check if services are healthy
-    if ! docker-compose ps | grep -q "healthy"; then
+    if ! docker compose ps | grep -q "healthy"; then
         print_warning "Services may not be fully ready, waiting a bit more..."
         sleep 20
     fi
@@ -249,7 +249,7 @@ setup_development() {
     
     # Start all services
     print_status "Starting development services..."
-    docker-compose up -d
+    docker compose up -d
     
     # Wait for services to be ready
     print_status "Waiting for all services to be ready..."
@@ -257,7 +257,7 @@ setup_development() {
     
     # Check service status
     print_status "Checking service status..."
-    docker-compose ps
+    docker compose ps
     
     print_success "Development environment setup completed!"
 }

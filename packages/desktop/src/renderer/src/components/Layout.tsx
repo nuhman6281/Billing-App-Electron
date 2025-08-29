@@ -15,6 +15,9 @@ import {
   X,
   LogOut,
   User,
+  Package,
+  Tags,
+  Calculator,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -32,6 +35,12 @@ const navigation = [
   { name: "Data Import/Export", href: "/data-import-export", icon: FileText },
   { name: "User Management", href: "/advanced-user-management", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
+];
+
+const itemManagementNavigation = [
+  { name: "Items & Stock", href: "/items", icon: Package },
+  { name: "Item Categories", href: "/item-categories", icon: Tags },
+  { name: "Tax Codes", href: "/tax-codes", icon: Calculator },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -89,6 +98,33 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+
+            {/* Item Management Section */}
+            <div className="pt-6">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Item Management
+              </div>
+              <div className="mt-2 space-y-1">
+                {itemManagementNavigation.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
+                        isActive(item.href)
+                          ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      }`}
+                    >
+                      <Icon className="mr-3 h-5 w-5" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </nav>
           <div className="border-t border-gray-200 p-4">
             <div className="flex items-center space-x-3">
@@ -137,6 +173,32 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+
+            {/* Item Management Section */}
+            <div className="pt-6">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Item Management
+              </div>
+              <div className="mt-2 space-y-1">
+                {itemManagementNavigation.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors ${
+                        isActive(item.href)
+                          ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      }`}
+                    >
+                      <Icon className="mr-3 h-5 w-5" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </nav>
           <div className="border-t border-gray-200 p-4">
             <div className="flex items-center space-x-3">

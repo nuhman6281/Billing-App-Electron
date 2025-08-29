@@ -250,6 +250,7 @@ router.post(
       };
 
       const invoiceItems = items.map((item: any) => ({
+        itemId: item.itemId || undefined,
         description: item.description,
         quantity: new Decimal(item.quantity),
         unitPrice: new Decimal(item.unitPrice),

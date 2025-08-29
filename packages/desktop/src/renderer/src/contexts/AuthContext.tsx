@@ -84,11 +84,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 setUser(userData.data);
               } else {
                 // If profile fetch fails, try refresh
-                await refreshAuth();
+                try {
+                  await refreshAuth();
+                } catch (refreshError) {
+                  console.error(
+                    "Profile fetch and refresh both failed:",
+                    refreshError
+                  );
+                  // Clear invalid tokens
+                  localStorage.removeItem("auth_tokens");
+                  localStorage.removeItem("token");
+                }
               }
             } catch (error) {
               // If profile fetch fails, try refresh
-              await refreshAuth();
+              try {
+                await refreshAuth();
+              } catch (refreshError) {
+                console.error(
+                  "Profile fetch and refresh both failed:",
+                  refreshError
+                );
+                // Clear invalid tokens
+                localStorage.removeItem("auth_tokens");
+                localStorage.removeItem("token");
+              }
             }
           } catch (error) {
             console.error("Failed to validate stored tokens:", error);
@@ -251,7 +271,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error("Token refresh failed:", error);
-      logout(); // Clear invalid tokens
+      // Don't call logout here to prevent infinite loops
+      // Just clear the tokens from state
+      setTokens(null);
+      setUser(null);
+      localStorage.removeItem("auth_tokens");
+      localStorage.removeItem("token");
       throw error;
     }
   };

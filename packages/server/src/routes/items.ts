@@ -1,19 +1,18 @@
-import { Router, Request, Response } from "express";
-import { VendorService } from "../models/Vendor";
+import { Router, Response } from "express";
+import { ItemService } from "../models/Item";
 import prisma from "../database";
 import { authenticateToken, requireRole } from "../middleware/auth";
 import { AuthenticatedRequest } from "../middleware/auth";
-import { Decimal } from "@prisma/client/runtime/library";
 
 const router = Router();
-const vendorService = new VendorService(prisma);
+const itemService = new ItemService(prisma);
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
 
 /**
- * @route   GET /api/vendors
- * @desc    Get all vendors for the authenticated user's company
+ * @route   GET /api/items
+ * @desc    Get all items for the authenticated user's company
  * @access  Private
  */
 router.get("/", async (req: AuthenticatedRequest, res: Response) => {
@@ -27,32 +26,45 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    const { search, isActive, limit, offset } = req.query;
+    const {
+      search,
+      categoryId,
+      isActive,
+      supplierId,
+      taxCodeId,
+      minPrice,
+      maxPrice,
+      inStock,
+      limit,
+      offset,
+    } = req.query;
 
-    const result = await vendorService.getVendors(companyId, {
+    const result = await itemService.getItems(companyId, {
       search: search as string,
-      isActive:
-        isActive === "true" ? true : isActive === "false" ? false : undefined,
+      categoryId: categoryId as string,
+      isActive: isActive === "true" ? true : isActive === "false" ? false : undefined,
+      supplierId: supplierId as string,
+      taxCodeId: taxCodeId as string,
+      minPrice: minPrice ? new (require("decimal.js").Decimal)(minPrice as string) : undefined,
+      maxPrice: maxPrice ? new (require("decimal.js").Decimal)(maxPrice as string) : undefined,
+      inStock: inStock === "true" ? true : inStock === "false" ? false : undefined,
       limit: limit ? parseInt(limit as string) : undefined,
       offset: offset ? parseInt(offset as string) : undefined,
     });
 
     res.json({
       success: true,
-      message: "Vendors retrieved successfully",
-      data: result.vendors,
+      message: "Items retrieved successfully",
+      data: result.items,
       pagination: {
         total: result.total,
         limit: limit ? parseInt(limit as string) : 50,
         offset: offset ? parseInt(offset as string) : 0,
-        hasMore:
-          (offset ? parseInt(offset as string) : 0) +
-            (limit ? parseInt(limit as string) : 50) <
-          result.total,
+        hasMore: result.hasMore,
       },
     });
   } catch (error: any) {
-    console.error("Error retrieving vendors:", error);
+    console.error("Error retrieving items:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -63,49 +75,13 @@ router.get("/", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * @route   GET /api/vendors/aging
- * @desc    Get vendor aging report
- * @access  Private
- */
-router.get("/aging", async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const companyId = req.user?.companyId;
-
-    if (!companyId) {
-      return res.status(400).json({
-        success: false,
-        message: "Company ID is required",
-        code: "MISSING_COMPANY_ID",
-      });
-    }
-
-    const agingData = await vendorService.getVendorAging(companyId);
-
-    res.json({
-      success: true,
-      message: "Vendor aging report retrieved successfully",
-      data: agingData,
-    });
-  } catch (error: any) {
-    console.error("Error retrieving vendor aging report:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      code: "INTERNAL_ERROR",
-      error: error.message,
-    });
-  }
-});
-
-/**
- * @route   GET /api/vendors/stats
- * @desc    Get vendor statistics for the company
+ * @route   GET /api/items/stats
+ * @desc    Get item statistics for the company
  * @access  Private
  */
 router.get("/stats", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const companyId = req.user?.companyId;
-
     if (!companyId) {
       return res.status(400).json({
         success: false,
@@ -114,15 +90,15 @@ router.get("/stats", async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    const stats = await vendorService.getVendorStats(companyId);
+    const stats = await itemService.getItemStats(companyId);
 
     res.json({
       success: true,
-      message: "Vendor statistics retrieved successfully",
+      message: "Item statistics retrieved successfully",
       data: stats,
     });
   } catch (error: any) {
-    console.error("Error retrieving vendor statistics:", error);
+    console.error("Error retrieving item statistics:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -133,14 +109,48 @@ router.get("/stats", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * @route   GET /api/vendors/:id
- * @desc    Get a specific vendor by ID
+ * @route   GET /api/items/next-code
+ * @desc    Get next available item code
+ * @access  Private
+ */
+router.get("/next-code", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const companyId = req.user?.companyId;
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: "Company ID is required",
+        code: "MISSING_COMPANY_ID",
+      });
+    }
+
+    const nextCode = await itemService.getNextItemCode(companyId);
+
+    res.json({
+      success: true,
+      message: "Next item code retrieved successfully",
+      data: { nextCode },
+    });
+  } catch (error: any) {
+    console.error("Error getting next item code:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      code: "INTERNAL_ERROR",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @route   GET /api/items/:id
+ * @desc    Get item by ID
  * @access  Private
  */
 router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
     const companyId = req.user?.companyId;
+    const { id } = req.params;
 
     if (!companyId) {
       return res.status(400).json({
@@ -150,23 +160,23 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    const vendor = await vendorService.getVendorById(id, companyId);
+    const item = await itemService.getItemById(id, companyId);
 
-    if (!vendor) {
+    if (!item) {
       return res.status(404).json({
         success: false,
-        message: "Vendor not found",
+        message: "Item not found",
         code: "NOT_FOUND",
       });
     }
 
     res.json({
       success: true,
-      message: "Vendor retrieved successfully",
-      data: vendor,
+      message: "Item retrieved successfully",
+      data: item,
     });
   } catch (error: any) {
-    console.error("Error retrieving vendor:", error);
+    console.error("Error retrieving item:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -177,8 +187,8 @@ router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
- * @route   POST /api/vendors
- * @desc    Create a new vendor
+ * @route   POST /api/items
+ * @desc    Create a new item
  * @access  Private (Requires ACCOUNTANT, BOOKKEEPER, or ADMIN role)
  */
 router.post(
@@ -197,45 +207,36 @@ router.post(
         });
       }
 
-      // Validate and parse the input
-      const { code, name, email, phone, address, taxId, creditLimit } =
-        req.body;
+      const itemData = req.body;
 
-      if (!code || !name) {
+      // Validate required fields
+      if (!itemData.code || !itemData.name || !itemData.categoryId) {
         return res.status(400).json({
           success: false,
-          message: "Vendor code and name are required",
+          message: "Code, name, and category are required",
           code: "MISSING_REQUIRED_FIELDS",
         });
       }
 
-      const vendorData = {
-        code,
-        name,
-        email,
-        phone,
-        address,
-        taxId,
-        creditLimit: creditLimit ? new Decimal(creditLimit) : undefined,
+      const item = await itemService.createItem({
+        ...itemData,
         companyId,
         createdBy,
-      };
-
-      const vendor = await vendorService.createVendor(vendorData);
+      });
 
       res.status(201).json({
         success: true,
-        message: "Vendor created successfully",
-        data: vendor,
+        message: "Item created successfully",
+        data: item,
       });
     } catch (error: any) {
-      console.error("Error creating vendor:", error);
+      console.error("Error creating item:", error);
 
       if (error.message.includes("already exists")) {
         return res.status(400).json({
           success: false,
           message: error.message,
-          code: "DUPLICATE_VENDOR",
+          code: "DUPLICATE_ITEM",
         });
       }
 
@@ -250,8 +251,8 @@ router.post(
 );
 
 /**
- * @route   PUT /api/vendors/:id
- * @desc    Update an existing vendor
+ * @route   PUT /api/items/:id
+ * @desc    Update an existing item
  * @access  Private (Requires ACCOUNTANT, BOOKKEEPER, or ADMIN role)
  */
 router.put(
@@ -259,57 +260,29 @@ router.put(
   requireRole(["ACCOUNTANT", "BOOKKEEPER", "ADMIN"]),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { id } = req.params;
       const companyId = req.user?.companyId;
-      const updatedBy = req.user?.userId;
+      const { id } = req.params;
+      const updateData = req.body;
 
-      if (!companyId || !updatedBy) {
+      if (!companyId) {
         return res.status(400).json({
           success: false,
-          message: "Company ID and user ID are required",
-          code: "MISSING_REQUIRED_FIELDS",
+          message: "Company ID is required",
+          code: "MISSING_COMPANY_ID",
         });
       }
 
-      // Validate and parse the input
-      const {
-        code,
-        name,
-        email,
-        phone,
-        address,
-        taxId,
-        creditLimit,
-        isActive,
-      } = req.body;
-
-      const updateData: any = {};
-
-      if (code !== undefined) updateData.code = code;
-      if (name !== undefined) updateData.name = name;
-      if (email !== undefined) updateData.email = email;
-      if (phone !== undefined) updateData.phone = phone;
-      if (address !== undefined) updateData.address = address;
-      if (taxId !== undefined) updateData.taxId = taxId;
-      if (creditLimit !== undefined)
-        updateData.creditLimit = new Decimal(creditLimit);
-      if (isActive !== undefined) updateData.isActive = isActive;
-
-      const vendor = await vendorService.updateVendor(
-        id,
-        updateData,
-        companyId
-      );
+      const item = await itemService.updateItem(id, companyId, updateData);
 
       res.json({
         success: true,
-        message: "Vendor updated successfully",
-        data: vendor,
+        message: "Item updated successfully",
+        data: item,
       });
     } catch (error: any) {
-      console.error("Error updating vendor:", error);
+      console.error("Error updating item:", error);
 
-      if (error.message.includes("Vendor not found")) {
+      if (error.message.includes("not found")) {
         return res.status(404).json({
           success: false,
           message: error.message,
@@ -321,7 +294,7 @@ router.put(
         return res.status(400).json({
           success: false,
           message: error.message,
-          code: "DUPLICATE_VENDOR",
+          code: "DUPLICATE_ITEM",
         });
       }
 
@@ -336,17 +309,18 @@ router.put(
 );
 
 /**
- * @route   PATCH /api/vendors/:id/status
- * @desc    Toggle vendor active status
+ * @route   PATCH /api/items/:id/stock
+ * @desc    Update item stock
  * @access  Private (Requires ACCOUNTANT, BOOKKEEPER, or ADMIN role)
  */
 router.patch(
-  "/:id/status",
+  "/:id/stock",
   requireRole(["ACCOUNTANT", "BOOKKEEPER", "ADMIN"]),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { id } = req.params;
       const companyId = req.user?.companyId;
+      const { id } = req.params;
+      const { quantity, operation } = req.body;
 
       if (!companyId) {
         return res.status(400).json({
@@ -356,17 +330,95 @@ router.patch(
         });
       }
 
-      const vendor = await vendorService.toggleVendorStatus(id, companyId);
+      if (!quantity || !operation) {
+        return res.status(400).json({
+          success: false,
+          message: "Quantity and operation are required",
+          code: "MISSING_REQUIRED_FIELDS",
+        });
+      }
+
+      if (!["ADD", "SUBTRACT", "SET"].includes(operation)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid operation. Must be ADD, SUBTRACT, or SET",
+          code: "INVALID_OPERATION",
+        });
+      }
+
+      const item = await itemService.updateStock(
+        id,
+        companyId,
+        parseInt(quantity),
+        operation as "ADD" | "SUBTRACT" | "SET"
+      );
 
       res.json({
         success: true,
-        message: `Vendor ${vendor.isActive ? "activated" : "deactivated"} successfully`,
-        data: vendor,
+        message: "Item stock updated successfully",
+        data: item,
       });
     } catch (error: any) {
-      console.error("Error toggling vendor status:", error);
+      console.error("Error updating item stock:", error);
 
-      if (error.message.includes("Vendor not found")) {
+      if (error.message.includes("not found")) {
+        return res.status(404).json({
+          success: false,
+          message: error.message,
+          code: "NOT_FOUND",
+        });
+      }
+
+      if (error.message.includes("Insufficient stock")) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+          code: "INSUFFICIENT_STOCK",
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        code: "INTERNAL_ERROR",
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route   PATCH /api/items/:id/status
+ * @desc    Toggle item status
+ * @access  Private (Requires ACCOUNTANT, BOOKKEEPER, or ADMIN role)
+ */
+router.patch(
+  "/:id/status",
+  requireRole(["ACCOUNTANT", "BOOKKEEPER", "ADMIN"]),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const companyId = req.user?.companyId;
+      const { id } = req.params;
+
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: "Company ID is required",
+          code: "MISSING_COMPANY_ID",
+        });
+      }
+
+      const item = await itemService.toggleItemStatus(id, companyId);
+
+      res.json({
+        success: true,
+        message: `Item ${item.isActive ? "activated" : "deactivated"} successfully`,
+        data: item,
+      });
+    } catch (error: any) {
+      console.error("Error toggling item status:", error);
+
+      if (error.message.includes("not found")) {
         return res.status(404).json({
           success: false,
           message: error.message,
@@ -385,42 +437,8 @@ router.patch(
 );
 
 /**
- * @route   GET /api/vendors/next-code
- * @desc    Get next available vendor code
- * @access  Private
- */
-router.get("/next-code", async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const companyId = req.user?.companyId;
-    if (!companyId) {
-      return res.status(400).json({
-        success: false,
-        message: "Company ID is required",
-        code: "MISSING_COMPANY_ID",
-      });
-    }
-
-    const nextCode = await vendorService.getNextVendorCode(companyId);
-
-    res.json({
-      success: true,
-      message: "Next vendor code retrieved successfully",
-      data: { nextCode },
-    });
-  } catch (error: any) {
-    console.error("Error getting next vendor code:", error);
-    res.status(500).json({
-      success: false,
-        message: "Internal server error",
-        code: "INTERNAL_ERROR",
-        error: error.message,
-    });
-  }
-});
-
-/**
- * @route   DELETE /api/vendors/:id
- * @desc    Delete a vendor (soft delete)
+ * @route   DELETE /api/items/:id
+ * @desc    Delete an item (soft delete)
  * @access  Private (Requires ACCOUNTANT, BOOKKEEPER, or ADMIN role)
  */
 router.delete(
@@ -428,8 +446,8 @@ router.delete(
   requireRole(["ACCOUNTANT", "BOOKKEEPER", "ADMIN"]),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { id } = req.params;
       const companyId = req.user?.companyId;
+      const { id } = req.params;
 
       if (!companyId) {
         return res.status(400).json({
@@ -439,28 +457,28 @@ router.delete(
         });
       }
 
-      await vendorService.deleteVendor(id, companyId);
+      await itemService.deleteItem(id, companyId);
 
       res.json({
         success: true,
-        message: "Vendor deleted successfully",
+        message: "Item deleted successfully",
       });
     } catch (error: any) {
-      console.error("Error deleting vendor:", error);
+      console.error("Error deleting item:", error);
 
-      if (error.message.includes("Vendor not found")) {
-        return res.status(400).json({
+      if (error.message.includes("not found")) {
+        return res.status(404).json({
           success: false,
           message: error.message,
           code: "NOT_FOUND",
         });
       }
 
-      if (error.message.includes("existing bills or payments")) {
+      if (error.message.includes("existing transactions")) {
         return res.status(400).json({
           success: false,
           message: error.message,
-          code: "CANNOT_DELETE_VENDOR",
+          code: "CANNOT_DELETE_ITEM",
         });
       }
 
@@ -475,3 +493,5 @@ router.delete(
 );
 
 export default router;
+
+

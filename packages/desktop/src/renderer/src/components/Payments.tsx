@@ -198,9 +198,9 @@ export default function Payments() {
       }
 
       if (editingPayment) {
-        await api.put<any>(`/payments/${editingPayment.id}`, formData, token);
+        await api.put<any>(`${API_ENDPOINTS.PAYMENTS.UPDATE?.replace(":id", editingPayment.id) || `/payments/${editingPayment.id}`}`, formData, token);
       } else {
-        await api.post<any>("/payments", formData, token);
+        await api.post<any>(API_ENDPOINTS.PAYMENTS.CREATE || "/payments", formData, token);
       }
 
       setIsModalOpen(false);
@@ -223,7 +223,7 @@ export default function Payments() {
       }
 
       await api.patch<any>(
-        `/payments/${paymentId}/status`,
+        API_ENDPOINTS.PAYMENTS.STATUS.replace(":id", paymentId),
         { status: newStatus },
         token
       );
@@ -243,7 +243,7 @@ export default function Payments() {
         return;
       }
 
-      await api.post<any>(`/payments/${paymentId}/reconcile`, {}, token);
+      await api.post<any>(API_ENDPOINTS.PAYMENTS.RECONCILE.replace(":id", paymentId), {}, token);
       fetchPayments();
       fetchStats();
     } catch (error) {

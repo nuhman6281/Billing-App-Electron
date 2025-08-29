@@ -1,11 +1,18 @@
-import {
-  PrismaClient,
-  ChartOfAccount,
-  AccountType,
-  AccountCategory,
-} from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { mapAccountCategoryToDatabase, mapAccountTypeToDatabase } from "../utils/enumMapping";
+
+// Define the types locally since they're not exported from Prisma client
+type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
+type AccountCategory =
+  | "CURRENT_ASSETS"
+  | "FIXED_ASSETS"
+  | "CURRENT_LIABILITIES"
+  | "LONG_TERM_LIABILITIES"
+  | "EQUITY"
+  | "OPERATING_REVENUE"
+  | "OPERATING_EXPENSE"
+  | "NON_OPERATING_REVENUE"
+  | "NON_OPERATING_EXPENSE";
 
 export interface CreateChartOfAccountInput {
   code: string;
@@ -30,7 +37,19 @@ export interface UpdateChartOfAccountInput {
   updatedBy: string;
 }
 
-export interface ChartOfAccountWithChildren extends ChartOfAccount {
+export interface ChartOfAccountWithChildren {
+  id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  category: AccountCategory;
+  balance: Decimal;
+  isActive: boolean;
+  parentId?: string | null;
+  companyId: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
   children?: ChartOfAccountWithChildren[];
   _count?: {
     children: number;
@@ -56,7 +75,7 @@ export class ChartOfAccountService {
    */
   async createAccount(
     input: CreateChartOfAccountInput
-  ): Promise<ChartOfAccount> {
+  ): Promise<ChartOfAccountWithChildren> {
     // Validate account code uniqueness within company
     const existingAccount = await this.prisma.chartOfAccount.findFirst({
       where: {
@@ -89,15 +108,50 @@ export class ChartOfAccountService {
       }
     }
 
-    // Map frontend display values to database enum values
-    const mappedType = mapAccountTypeToDatabase(input.type as any) || input.type;
-    const mappedCategory = mapAccountCategoryToDatabase(input.category as any) || input.category;
+    // Validate and map enum values
+    const validTypes = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"];
+    const validCategories = [
+      "CURRENT_ASSETS",
+      "FIXED_ASSETS",
+      "CURRENT_LIABILITIES",
+      "LONG_TERM_LIABILITIES",
+      "EQUITY",
+      "OPERATING_REVENUE",
+      "OPERATING_EXPENSE",
+      "NON_OPERATING_REVENUE",
+      "NON_OPERATING_EXPENSE",
+    ];
+
+    // Normalize the input values
+    const normalizedType = input.type.toUpperCase().replace(/\s+/g, "_");
+    const normalizedCategory = input.category
+      .toUpperCase()
+      .replace(/\s+/g, "_");
+
+    // Validate type
+    if (!validTypes.includes(normalizedType)) {
+      throw new Error(
+        `Invalid account type: ${input.type}. Must be one of: ${validTypes.join(", ")}`
+      );
+    }
+
+    // Validate category
+    if (!validCategories.includes(normalizedCategory)) {
+      throw new Error(
+        `Invalid account category: ${input.category}. Must be one of: ${validCategories.join(", ")}`
+      );
+    }
+
+    // Handle empty parentId
+    const parentId =
+      input.parentId && input.parentId.trim() !== "" ? input.parentId : null;
 
     return this.prisma.chartOfAccount.create({
       data: {
         ...input,
-        type: mappedType as AccountType,
-        category: mappedCategory as AccountCategory,
+        type: normalizedType as AccountType,
+        category: normalizedCategory as AccountCategory,
+        parentId,
         balance: new Decimal(0),
       },
     });
@@ -110,7 +164,7 @@ export class ChartOfAccountService {
     id: string,
     input: UpdateChartOfAccountInput,
     companyId: string
-  ): Promise<ChartOfAccount> {
+  ): Promise<ChartOfAccountWithChildren> {
     // Check if account exists and belongs to company
     const existingAccount = await this.prisma.chartOfAccount.findFirst({
       where: {
@@ -170,14 +224,52 @@ export class ChartOfAccountService {
       }
     }
 
-    // Map frontend display values to database enum values if provided
+    // Prepare update data
     const updateData: any = { ...input, updatedAt: new Date() };
-    
+
+    // Handle enum values if provided
     if (input.type) {
-      updateData.type = mapAccountTypeToDatabase(input.type) || input.type;
+      const validTypes = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"];
+      const normalizedType = input.type.toUpperCase().replace(/\s+/g, "_");
+
+      if (!validTypes.includes(normalizedType)) {
+        throw new Error(
+          `Invalid account type: ${input.type}. Must be one of: ${validTypes.join(", ")}`
+        );
+      }
+
+      updateData.type = normalizedType;
     }
+
     if (input.category) {
-      updateData.category = mapAccountCategoryToDatabase(input.category) || input.category;
+      const validCategories = [
+        "CURRENT_ASSETS",
+        "FIXED_ASSETS",
+        "CURRENT_LIABILITIES",
+        "LONG_TERM_LIABILITIES",
+        "EQUITY",
+        "OPERATING_REVENUE",
+        "OPERATING_EXPENSE",
+        "NON_OPERATING_REVENUE",
+        "NON_OPERATING_EXPENSE",
+      ];
+      const normalizedCategory = input.category
+        .toUpperCase()
+        .replace(/\s+/g, "_");
+
+      if (!validCategories.includes(normalizedCategory)) {
+        throw new Error(
+          `Invalid account category: ${input.category}. Must be one of: ${validCategories.join(", ")}`
+        );
+      }
+
+      updateData.category = normalizedCategory;
+    }
+
+    // Handle empty parentId
+    if (input.parentId !== undefined) {
+      updateData.parentId =
+        input.parentId && input.parentId.trim() !== "" ? input.parentId : null;
     }
 
     return this.prisma.chartOfAccount.update({
@@ -192,7 +284,7 @@ export class ChartOfAccountService {
   async getAccountById(
     id: string,
     companyId: string
-  ): Promise<ChartOfAccount | null> {
+  ): Promise<ChartOfAccountWithChildren | null> {
     return this.prisma.chartOfAccount.findFirst({
       where: {
         id,
@@ -214,7 +306,7 @@ export class ChartOfAccountService {
       parentId?: string | null;
       search?: string;
     } = {}
-  ): Promise<ChartOfAccount[]> {
+  ): Promise<ChartOfAccountWithChildren[]> {
     const where: any = {
       companyId,
       isDeleted: false,
@@ -222,10 +314,30 @@ export class ChartOfAccountService {
 
     // Map frontend display values to database enum values for filtering
     if (options.type) {
-      where.type = mapAccountTypeToDatabase(options.type) || options.type;
+      const validTypes = ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"];
+      const normalizedType = options.type.toUpperCase().replace(/\s+/g, "_");
+      if (validTypes.includes(normalizedType)) {
+        where.type = normalizedType;
+      }
     }
     if (options.category) {
-      where.category = mapAccountCategoryToDatabase(options.category) || options.category;
+      const validCategories = [
+        "CURRENT_ASSETS",
+        "FIXED_ASSETS",
+        "CURRENT_LIABILITIES",
+        "LONG_TERM_LIABILITIES",
+        "EQUITY",
+        "OPERATING_REVENUE",
+        "OPERATING_EXPENSE",
+        "NON_OPERATING_REVENUE",
+        "NON_OPERATING_EXPENSE",
+      ];
+      const normalizedCategory = options.category
+        .toUpperCase()
+        .replace(/\s+/g, "_");
+      if (validCategories.includes(normalizedCategory)) {
+        where.category = normalizedCategory;
+      }
     }
     if (options.isActive !== undefined) where.isActive = options.isActive;
     if (options.parentId !== undefined) where.parentId = options.parentId;
@@ -706,7 +818,9 @@ export class ChartOfAccountService {
     return [...childIds, ...grandChildIds.flat()];
   }
 
-  private buildAccountTree(accounts: ChartOfAccount[]): ChartOfAccountTree[] {
+  private buildAccountTree(
+    accounts: ChartOfAccountWithChildren[]
+  ): ChartOfAccountTree[] {
     const accountMap = new Map<string, ChartOfAccountTree>();
     const rootAccounts: ChartOfAccountTree[] = [];
 
@@ -745,63 +859,65 @@ export class ChartOfAccountService {
    * Get chart of accounts statistics
    */
   async getStats(companyId: string) {
-    const [
-      totalAccounts,
-      activeAccounts,
-      accountsByType,
-      accountsByCategory
-    ] = await Promise.all([
-      // Total accounts
-      this.prisma.chartOfAccount.count({
-        where: {
-          companyId,
-          isDeleted: false,
-        },
-      }),
-      // Active accounts
-      this.prisma.chartOfAccount.count({
-        where: {
-          companyId,
-          isDeleted: false,
-          isActive: true,
-        },
-      }),
-      // Accounts by type
-      this.prisma.chartOfAccount.groupBy({
-        by: ['type'],
-        where: {
-          companyId,
-          isDeleted: false,
-        },
-        _count: {
-          type: true,
-        },
-      }),
-      // Accounts by category
-      this.prisma.chartOfAccount.groupBy({
-        by: ['category'],
-        where: {
-          companyId,
-          isDeleted: false,
-        },
-        _count: {
-          category: true,
-        },
-      }),
-    ]);
+    const [totalAccounts, activeAccounts, accountsByType, accountsByCategory] =
+      await Promise.all([
+        // Total accounts
+        this.prisma.chartOfAccount.count({
+          where: {
+            companyId,
+            isDeleted: false,
+          },
+        }),
+        // Active accounts
+        this.prisma.chartOfAccount.count({
+          where: {
+            companyId,
+            isDeleted: false,
+            isActive: true,
+          },
+        }),
+        // Accounts by type
+        this.prisma.chartOfAccount.groupBy({
+          by: ["type"],
+          where: {
+            companyId,
+            isDeleted: false,
+          },
+          _count: {
+            type: true,
+          },
+        }),
+        // Accounts by category
+        this.prisma.chartOfAccount.groupBy({
+          by: ["category"],
+          where: {
+            companyId,
+            isDeleted: false,
+          },
+          _count: {
+            category: true,
+          },
+        }),
+      ]);
 
     return {
       totalAccounts,
       activeAccounts,
       inactiveAccounts: totalAccounts - activeAccounts,
-      accountsByType: accountsByType.reduce((acc, item) => {
-        acc[item.type] = item._count.type;
-        return acc;
-      }, {} as Record<string, number>),
-      accountsByCategory: accountsByCategory.reduce((acc, item) => {
-        acc[item.category] = item._count.category;
-        return acc;
-      }, {} as Record<string, number>),
+      accountsByType: accountsByType.reduce(
+        (acc, item) => {
+          acc[item.type] = item._count.type;
+          return acc;
+        },
+        {} as Record<string, number>
+      ),
+      accountsByCategory: accountsByCategory.reduce(
+        (acc, item) => {
+          acc[item.category] = item._count.category;
+          return acc;
+        },
+        {} as Record<string, number>
+      ),
     };
   }
 

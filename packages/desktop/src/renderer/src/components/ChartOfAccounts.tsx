@@ -17,7 +17,7 @@ interface ChartOfAccount {
   id: string;
   code: string;
   name: string;
-  type: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
+  type: string; // Changed from enum to string to match backend response
   category: string;
   parentId?: string;
   description?: string;
@@ -82,6 +82,20 @@ const accountCategories = {
   ],
 };
 
+// Reverse mapping to convert backend display values to accountCategories keys
+const getCategoryKeyFromDisplayValue = (
+  displayValue: string
+): keyof typeof accountCategories | null => {
+  const mapping: Record<string, keyof typeof accountCategories> = {
+    Asset: "ASSET",
+    Liability: "LIABILITY",
+    Equity: "EQUITY",
+    Revenue: "REVENUE",
+    Expense: "EXPENSE",
+  };
+  return mapping[displayValue] || null;
+};
+
 export default function ChartOfAccounts() {
   const { getAccessToken } = useAuth();
   const [accounts, setAccounts] = useState<ChartOfAccount[]>([]);
@@ -103,7 +117,7 @@ export default function ChartOfAccounts() {
   const [formData, setFormData] = useState({
     code: "",
     name: "",
-    type: "ASSET" as "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE",
+    type: "ASSET" as string, // Changed from enum to string
     category: "",
     parentId: "",
     description: "",
@@ -121,6 +135,13 @@ export default function ChartOfAccounts() {
     fetchAccounts();
     fetchStats();
   }, []);
+
+  // Clear category when type changes to ensure proper category dropdown loading
+  useEffect(() => {
+    if (formData.type) {
+      setFormData((prev) => ({ ...prev, category: "" }));
+    }
+  }, [formData.type]);
 
   const fetchAccounts = async () => {
     try {
@@ -242,15 +263,19 @@ export default function ChartOfAccounts() {
 
   const handleEdit = (account: ChartOfAccount) => {
     setEditingAccount(account);
-    setFormData({
+
+    // Map the account data to form data, ensuring proper format for dropdowns
+    const mappedFormData = {
       code: account.code,
       name: account.name,
-      type: account.type,
-      category: account.category,
+      type: account.type as string,
+      category: account.category || "",
       parentId: account.parentId || "",
       description: account.description || "",
       isActive: account.isActive,
-    });
+    };
+
+    setFormData(mappedFormData);
     setIsModalOpen(true);
   };
 
@@ -326,6 +351,7 @@ export default function ChartOfAccounts() {
             <span className="text-sm font-medium text-gray-900">
               ${parseFloat(account.balance).toFixed(2)}
             </span>
+            {/* Balance represents the current financial balance of this account */}
             <div className="flex space-x-1">
               <Button
                 variant="ghost"
@@ -543,7 +569,7 @@ export default function ChartOfAccounts() {
                   onChange={(e) => {
                     setFormData({
                       ...formData,
-                      type: e.target.value as any,
+                      type: e.target.value as string,
                       category: "", // Reset category when type changes
                     });
                   }}
@@ -565,17 +591,42 @@ export default function ChartOfAccounts() {
                 <select
                   value={formData.category}
                   onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
+                    setFormData({
+                      ...formData,
+                      category: e.target.value,
+                    })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="">Select Category</option>
-                  {accountCategories[formData.type]?.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
+                  {(() => {
+                    // In create mode, formData.type is already the enum key (e.g., "ASSET")
+                    // In edit mode, it's the display value (e.g., "Asset")
+                    let categoryKey: keyof typeof accountCategories | null;
+
+                    if (editingAccount) {
+                      // Edit mode: convert display value to enum key
+                      categoryKey = getCategoryKeyFromDisplayValue(
+                        formData.type
+                      );
+                    } else {
+                      // Create mode: use the enum key directly
+                      categoryKey =
+                        formData.type as keyof typeof accountCategories;
+                    }
+
+                    if (!categoryKey || !accountCategories[categoryKey])
+                      return null;
+
+                    return accountCategories[categoryKey].map(
+                      (category: string) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      )
+                    );
+                  })()}
                 </select>
               </div>
 

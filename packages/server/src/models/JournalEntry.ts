@@ -634,36 +634,10 @@ export class JournalEntryService {
     companyId: string,
     tx?: any
   ): Promise<string> {
-    const prisma = tx || this.prisma;
-
-    // Get the last journal entry number for this company
-    const lastEntry = await prisma.journalEntry.findFirst({
-      where: {
-        companyId,
-        isDeleted: false,
-      },
-      orderBy: {
-        number: "desc",
-      },
-      select: {
-        number: true,
-      },
-    });
-
-    if (!lastEntry) {
-      // First entry for this company
-      return "JE-001";
-    }
-
-    // Extract the number part and increment
-    const match = lastEntry.number.match(/^JE-(\d+)$/);
-    if (match) {
-      const nextNumber = parseInt(match[1]) + 1;
-      return `JE-${nextNumber.toString().padStart(3, "0")}`;
-    }
-
-    // Fallback if format is unexpected
-    return `JE-${Date.now()}`;
+    // Use timestamp-based approach to ensure uniqueness
+    const timestamp = Date.now();
+    const randomSuffix = Math.floor(Math.random() * 10000);
+    return `JE-${timestamp}-${randomSuffix}`;
   }
 
   /**

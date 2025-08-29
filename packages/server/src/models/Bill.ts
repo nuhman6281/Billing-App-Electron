@@ -153,6 +153,9 @@ export class BillService {
           tx.billItem.create({
             data: {
               billId: bill.id,
+              companyId: bill.companyId,
+              createdBy: bill.createdBy,
+              updatedBy: bill.createdBy, // Set updatedBy to same as createdBy for new records
               description: item.description,
               quantity: item.quantity,
               unitPrice: item.unitPrice,

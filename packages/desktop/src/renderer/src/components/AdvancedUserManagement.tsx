@@ -399,7 +399,7 @@ export default function AdvancedUserManagement() {
         setError("No authentication token available");
         return;
       }
-      await api.patch<any>(`/users/${userId}/status`, { status }, token);
+      await api.patch<any>(API_ENDPOINTS.USERS.STATUS.replace(":id", userId), { status }, token);
       setSuccess("User status updated successfully");
       fetchData();
     } catch (error) {
@@ -417,7 +417,7 @@ export default function AdvancedUserManagement() {
         setError("No authentication token available");
         return;
       }
-      await api.delete<any>(`/users/${userId}`, token);
+      await api.delete<any>(API_ENDPOINTS.USERS.DELETE.replace(":id", userId), token);
       setSuccess("User deleted successfully");
       fetchData();
     } catch (error) {
